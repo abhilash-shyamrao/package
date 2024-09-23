@@ -1,22 +1,15 @@
-CREATE TABLE data_quality_config_attribute (
-    dq_config_attr_id SERIAL PRIMARY KEY,
+CREATE TABLE data_quality_config_integration (
+    dq_integration_id SERIAL PRIMARY KEY,
     dq_config_id INT,
-    skip_after_holiday_flg BOOLEAN,
-    send_email_flg BOOLEAN,
-    email_address VARCHAR(255),
-    email_result_status VARCHAR(50),
-    get_latest_file_flg BOOLEAN,
-    tags TEXT,
-    failed_records_enabled BOOLEAN,
-    failed_records_path VARCHAR(255),
-    failed_records_justification TEXT,
-    failed_records_override BOOLEAN,
-    failed_records_count INT,
+    integration_arn VARCHAR(255),
+    integration_condition TEXT,
+    integration_type VARCHAR(50),
     created_date TIMESTAMP,
     created_by VARCHAR(50),
     updated_by VARCHAR(50),
     updated_date TIMESTAMP,
     
+    -- Foreign key constraint
     CONSTRAINT fk_dq_config
         FOREIGN KEY (dq_config_id)
         REFERENCES dqc_schema.data_quality_config(dq_config_id)
