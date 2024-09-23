@@ -1,13 +1,12 @@
-CREATE TABLE dataset (
-    dataset_id SERIAL PRIMARY KEY,
-    dataset_path VARCHAR(255),
-    dataset_type VARCHAR(50),
-    dataset_database_name VARCHAR(50),
-    dataset_table_name VARCHAR(50),
-    dataset_column_list TEXT,
-    dataset_delimiter CHAR(1),
+CREATE TABLE dataset_attribute (
+    dataset_attr_id SERIAL PRIMARY KEY,
+    dataset_id INT REFERENCES dataset(dataset_id) ON DELETE CASCADE,
+    region VARCHAR(50),
+    driver_name VARCHAR(50),
+    secret_arn VARCHAR(255),
+    secret_role VARCHAR(255),
+    created_date TIMESTAMP,
+    created_by VARCHAR(50),
     updated_by VARCHAR(50),
-    updated_date TIMESTAMP,
-    created_by VARCHAR(50)
+    updated_date TIMESTAMP
 );
-
