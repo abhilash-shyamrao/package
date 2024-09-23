@@ -1,29 +1,13 @@
 CREATE TABLE dataset (
-    dataset_id INT PRIMARY KEY,
-    dataset_path VARCHAR(255) NOT NULL,
-    dataset_type VARCHAR(100),
-    dataset_database_name VARCHAR(100),
-    dataset_table_name VARCHAR(100),
+    dataset_id SERIAL PRIMARY KEY,
+    dataset_path VARCHAR(255),
+    dataset_type VARCHAR(50),
+    dataset_database_name VARCHAR(50),
+    dataset_table_name VARCHAR(50),
     dataset_column_list TEXT,
-    dataset_delimiter VARCHAR(10),
-    updated_by VARCHAR(100),
-    updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
-CREATE TABLE dataset_attribute (
-    dataset_attr_id INT PRIMARY KEY,
-    dataset_id INT,
-    region VARCHAR(100),
-    driver_name VARCHAR(100),
-    secret_arn VARCHAR(255),
-    secret_role VARCHAR(255),
-    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100),
-    updated_by VARCHAR(100),
-    updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (dataset_id) REFERENCES dataset(dataset_id)
+    dataset_delimiter CHAR(1),
+    updated_by VARCHAR(50),
+    updated_date TIMESTAMP,
+    created_by VARCHAR(50)
 );
 
