@@ -1,17 +1,8 @@
-CREATE TABLE data_quality_config_integration (
-    dq_integration_id SERIAL PRIMARY KEY,
-    dq_config_id INT,
-    integration_arn VARCHAR(255),
-    integration_condition TEXT,
-    integration_type VARCHAR(50),
-    created_date TIMESTAMP,
+CREATE TABLE rule_library (
+    rule_id SERIAL PRIMARY KEY,
+    rule_name VARCHAR(255),
+    created_on TIMESTAMP,
     created_by VARCHAR(50),
     updated_by VARCHAR(50),
-    updated_date TIMESTAMP,
-    
-    -- Foreign key constraint
-    CONSTRAINT fk_dq_config
-        FOREIGN KEY (dq_config_id)
-        REFERENCES dqc_schema.data_quality_config(dq_config_id)
-        ON DELETE CASCADE
+    updated_date TIMESTAMP
 );
