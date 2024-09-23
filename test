@@ -1,8 +1,20 @@
-CREATE TABLE rule_library (
-    rule_id SERIAL PRIMARY KEY,
-    rule_name VARCHAR(255),
-    created_on TIMESTAMP,
+CREATE TABLE ruleset (
+    ruleset_id INT,
+    dq_config_id INT,
+    rule_definition TEXT,
+    rule_id INT,
+    ruleset_status VARCHAR(50),
+    created_date TIMESTAMP,
     created_by VARCHAR(50),
     updated_by VARCHAR(50),
-    updated_date TIMESTAMP
+    updated_date TIMESTAMP,
+    
+    -- Composite primary key
+    PRIMARY KEY (ruleset_id, dq_config_id),
+    
+    -- Foreign key constraint
+    CONSTRAINT fk_rule
+        FOREIGN KEY (rule_id)
+        REFERENCES rule_library(rule_id)
+        ON DELETE CASCADE
 );
