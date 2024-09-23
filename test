@@ -1,11 +1,12 @@
-CREATE TABLE dataset_attribute (
-    dataset_attr_id SERIAL PRIMARY KEY,
-    dataset_id INT REFERENCES dataset(dataset_id) ON DELETE CASCADE,
-    region VARCHAR(50),
-    driver_name VARCHAR(50),
-    secret_arn VARCHAR(255),
-    secret_role VARCHAR(255),
-    created_date TIMESTAMP,
+CREATE TABLE dqc_schema.data_quality_config (
+    dq_config_id SERIAL PRIMARY KEY,
+    dq_config_name VARCHAR(255),
+    source_dataset_id INT REFERENCES dataset(dataset_id) ON DELETE CASCADE,
+    target_dataset_id_list TEXT, 
+    execution_group_id INT REFERENCES execution_group(execution_group_id) ON DELETE CASCADE,
+    reporting_group_id_list TEXT, 
+    config_status VARCHAR(50),
+    access_id_list TEXT, 
     created_by VARCHAR(50),
     updated_by VARCHAR(50),
     updated_date TIMESTAMP
