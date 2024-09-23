@@ -1,12 +1,16 @@
-CREATE TABLE dqc_schema.execution_group (
-    execution_group_id SERIAL PRIMARY KEY,
-    execution_group_name VARCHAR(255),
-    execution_group_description TEXT,
-    execution_group_schedule VARCHAR(255),
-    execution_group_status VARCHAR(50),
+CREATE TABLE dqc_schema.data_quality_config (
+    dq_config_id SERIAL PRIMARY KEY,
+    dq_config_name VARCHAR(255),
+    source_dataset_id INT REFERENCES dataset(dataset_id) ON DELETE CASCADE, 
+    target_dataset_id_list TEXT, 
+    execution_time TIMESTAMP,
     last_execution_time TIMESTAMP,
     next_execution_time TIMESTAMP,
-    execution_group_region VARCHAR(50),
-    created_date TIMESTAMP,
+    region VARCHAR(50),
+    reporting_group_id_list TEXT,
+    config_status VARCHAR(50),
+    access_id_list TEXT, 
+    created_by VARCHAR(50),
+    updated_by VARCHAR(50),
     updated_date TIMESTAMP
 );
