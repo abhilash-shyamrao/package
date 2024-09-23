@@ -1,48 +1,29 @@
-import { render, screen } from '@testing-library/react';
-import '@testing-library/jest-dom';
-import { DatasetRuns } from './DatasetRuns';
-import { AggregatedData } from '../../models/AggregatedData';
+CREATE TABLE dataset (
+    dataset_id INT PRIMARY KEY,
+    dataset_path VARCHAR(255) NOT NULL,
+    dataset_type VARCHAR(100),
+    dataset_database_name VARCHAR(100),
+    dataset_table_name VARCHAR(100),
+    dataset_column_list TEXT,
+    dataset_delimiter VARCHAR(10),
+    updated_by VARCHAR(100),
+    updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-// Mocking AggregatedData
-const mockData: AggregatedData = {
-  jobRuns: [
-    {
-      jobRunId: "run-1",
-      jobRunStatus: "Success",
-      jobRunStartTime: "2024-09-08T12:00:00Z",
-      jobRunEndTime: "2024-09-08T13:00:00Z",
-      jobRunDuration: "1 hour",
-    },
-    {
-      jobRunId: "run-2",
-      jobRunStatus: "Failure",
-      jobRunStartTime: "2024-09-08T14:00:00Z",
-      jobRunEndTime: "2024-09-08T15:00:00Z",
-      jobRunDuration: "1 hour",
-    },
-  ],
-};
 
-describe('DatasetRuns Component', () => {
-  test('renders table headers correctly', () => {
-    render(<DatasetRuns data={mockData} />);
+CREATE TABLE dataset_attribute (
+    dataset_attr_id INT PRIMARY KEY,
+    dataset_id INT,
+    region VARCHAR(100),
+    driver_name VARCHAR(100),
+    secret_arn VARCHAR(255),
+    secret_role VARCHAR(255),
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (dataset_id) REFERENCES dataset(dataset_id)
+);
 
-    // Check if the table headers are rendered correctly
-    expect(screen.getByText('Status')).toBeInTheDocument();
-    expect(screen.getByText('Start Time')).toBeInTheDocument();
-    expect(screen.getByText('End time')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
-    expect(screen.getByText('Details')).toBeInTheDocument();
-  });
-
-  test('renders job run data correctly', () => {
-    render(<DatasetRuns data={mockData} />);
-
-    // Check if the job run data is rendered correctly
-    expect(screen.getByText('Success')).toBeInTheDocument();
-    expect(screen.getByText('Failure')).toBeInTheDocument();
-    expect(screen.getByText('2024-09-08T12:00:00Z')).toBeInTheDocument();
-    expect(screen.getByText('2024-09-08T13:00:00Z')).toBeInTheDocument();
-    expect(screen.getByText('1 hour')).toBeInTheDocument();
-  });
-});
