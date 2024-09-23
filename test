@@ -1,20 +1,21 @@
-CREATE TABLE dqc_schema.data_quality_config (
-    dq_config_id SERIAL PRIMARY KEY,
-    dq_config_name VARCHAR(255),
-    source_dataset_id INT,
-    target_dataset_id_list TEXT,
-    execution_time TIMESTAMP,
-    last_execution_time TIMESTAMP,
-    next_execution_time TIMESTAMP,
-    region VARCHAR(50),
-    reporting_group_id_list TEXT,
-    config_status VARCHAR(50),
-    access_id_list TEXT,
+CREATE TABLE data_quality_config_dataset_filter (
+    dq_config_dataset_filter_id SERIAL PRIMARY KEY,
+    dq_config_id INT,
+    dataset_id INT,
+    filter_string TEXT,
+    created_date TIMESTAMP,
     created_by VARCHAR(50),
     updated_by VARCHAR(50),
     updated_date TIMESTAMP,
-    CONSTRAINT fk_source_dataset
-        FOREIGN KEY (source_dataset_id)
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_dq_config
+        FOREIGN KEY (dq_config_id)
+        REFERENCES dqc_schema.data_quality_config(dq_config_id)
+        ON DELETE CASCADE,
+    
+    CONSTRAINT fk_dataset
+        FOREIGN KEY (dataset_id)
         REFERENCES dataset(dataset_id)
         ON DELETE CASCADE
 );
