@@ -1,14 +1,9 @@
-CREATE TABLE reporting_group (
-    reporting_group_id SERIAL PRIMARY KEY,
-    reporting_group_name VARCHAR(255),
-    reporting_group_email_list TEXT,
-    reporting_group_schedule VARCHAR(255),
-    reporting_group_status VARCHAR(50),
-    last_execution_time TIMESTAMP,
-    next_execution_time TIMESTAMP,
-    reporting_group_region VARCHAR(50),
+CREATE TABLE access_group (
+    access_id SERIAL PRIMARY KEY,
+    access_role_name VARCHAR(255),
+    access_description TEXT,
+    created_on TIMESTAMP,
     created_by VARCHAR(50),
-    created_date TIMESTAMP,
-    updated_by VARCHAR(50),
-    updated_date TIMESTAMP
+    last_updated_on TIMESTAMP,
+    last_updated_by VARCHAR(50)
 );
