@@ -1,9 +1,10 @@
-CREATE TABLE access_group (
-    access_id SERIAL PRIMARY KEY,
-    access_role_name VARCHAR(255),
-    access_description TEXT,
+CREATE TABLE config_target_dataset_relation (
+    dq_config_id INT,
+    target_dataset_id INT,
     created_on TIMESTAMP,
     created_by VARCHAR(50),
     last_updated_on TIMESTAMP,
-    last_updated_by VARCHAR(50)
+    last_updated_by VARCHAR(50),
+    
+    PRIMARY KEY (dq_config_id, target_dataset_id)
 );
