@@ -1,11 +1,10 @@
-CREATE TABLE config_access_relation (
+CREATE TABLE config_reporting_group_relation (
     dq_config_id INT,
-    access_id INT,
+    reporting_group_id INT,
     created_on TIMESTAMP,
     created_by VARCHAR(50),
     last_updated_on TIMESTAMP,
     last_updated_by VARCHAR(50),
     
-    -- Composite primary key
-    PRIMARY KEY (dq_config_id, access_id)
+    PRIMARY KEY (dq_config_id, reporting_group_id)
 );
