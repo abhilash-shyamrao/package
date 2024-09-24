@@ -1,10 +1,11 @@
-CREATE TABLE config_target_dataset_relation (
+CREATE TABLE config_access_relation (
     dq_config_id INT,
-    target_dataset_id INT,
+    access_id INT,
     created_on TIMESTAMP,
     created_by VARCHAR(50),
     last_updated_on TIMESTAMP,
     last_updated_by VARCHAR(50),
     
-    PRIMARY KEY (dq_config_id, target_dataset_id)
+    -- Composite primary key
+    PRIMARY KEY (dq_config_id, access_id)
 );
