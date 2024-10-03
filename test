@@ -1,10 +1,1 @@
-CREATE TABLE config_reporting_group_relation (
-    dq_config_id INT,
-    reporting_group_id INT,
-    created_on TIMESTAMP,
-    created_by VARCHAR(50),
-    last_updated_on TIMESTAMP,
-    last_updated_by VARCHAR(50),
-    
-    PRIMARY KEY (dq_config_id, reporting_group_id)
-);
+https://docs.google.com/presentation/d/15rV-05WZLC8_4mH2zn7r_Z-BQ2xWeKIO/edit?usp=sharing&ouid=110869438460480398260&rtpof=true&sd=true
