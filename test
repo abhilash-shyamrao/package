@@ -5,23 +5,26 @@ import ReportingGroup from './ReportingGroup';
 import { useOktaAuth } from '@okta/okta-react';
 import MetadataService from '../../../services/MetadataService';
 import AppUtils from '../../../utils/AppUtils/AppUtils';
-import { vi, MockedFunction } from 'vitest';
+import { vi, MockedFunction, Mock } from 'vitest';
 
-// Define mockCronSchedule before the vi.mock call
-const mockCronSchedule = vi.fn(() => <div>CronSchedule Component</div>);
+// Define mockCronSchedule as a let variable
+let mockCronSchedule: Mock;
 
 // Mocking modules
 vi.mock('@okta/okta-react');
 vi.mock('../../../services/MetadataService');
 vi.mock('../../../utils/AppUtils/AppUtils');
-vi.mock('../../../CronSchedule/CronSchedule', () => ({
-  default: mockCronSchedule,
-}));
+vi.mock('../../../CronSchedule/CronSchedule', () => {
+  mockCronSchedule = vi.fn(() => <div>CronSchedule Component</div>);
+  return {
+    default: mockCronSchedule,
+  };
+});
 
 describe('ReportingGroup Component', () => {
   beforeEach(() => {
-    // Reset the mock before each test
-    mockCronSchedule.mockClear();
+    // Reset all mocks before each test
+    vi.clearAllMocks();
 
     // Mock the useOktaAuth hook
     const mockUseOktaAuth = useOktaAuth as MockedFunction<typeof useOktaAuth>;
@@ -153,7 +156,7 @@ describe('ReportingGroup Component', () => {
     const regionSelect = screen.getByLabelText('Region');
     fireEvent.focus(regionSelect);
     fireEvent.keyDown(regionSelect, { key: 'ArrowDown', code: 'ArrowDown' });
-    await waitFor(() => screen.getByText('Region 1'));
+    await waitFor(() => expect(screen.getByText('Region 1')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Region 1'));
 
     // Wait for the component to re-render
