@@ -14,22 +14,22 @@ describe('ReportingGroup Component', () => {
 
     // Simulate typing in the name input (casting to HTMLInputElement)
     const nameInput = screen.getByLabelText(/Name/i) as HTMLInputElement;
-    fireEvent.blur(nameInput, { target: { value: 'Test Group' } });
+    fireEvent.blur(nameInput, { target: { value: 'Test Group' } as Partial<EventTarget> });
     expect(nameInput.value).toBe('Test Group');
 
     // Simulate selecting Line of Business (casting to HTMLSelectElement)
     const lobSelect = screen.getByLabelText(/Line of Business/i) as HTMLSelectElement;
-    fireEvent.change(lobSelect, { target: { value: 'LOB1' } });
+    fireEvent.change(lobSelect, { target: { value: 'LOB1' } as Partial<EventTarget> });
     expect(lobSelect.value).toBe('LOB1');
 
     // Simulate selecting Region (casting to HTMLSelectElement)
     const regionSelect = screen.getByLabelText(/Region/i) as HTMLSelectElement;
-    fireEvent.change(regionSelect, { target: { value: 'Region1' } });
+    fireEvent.change(regionSelect, { target: { value: 'Region1' } as Partial<EventTarget> });
     expect(regionSelect.value).toBe('Region1');
 
     // Simulate typing in the email list input (casting to HTMLInputElement)
     const emailInput = screen.getByLabelText(/Email List/i) as HTMLInputElement;
-    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } as Partial<EventTarget> });
     expect(emailInput.value).toBe('test@example.com');
   });
 
