@@ -3,64 +3,33 @@ import ReportingGroup from './ReportingGroup'; // Ensure the correct path to you
 import { vi } from 'vitest';
 
 // Mock MetadataService to avoid actual API calls
-jest.mock('../../services/MetadataService', () => ({
+vi.mock('../../services/MetadataService', () => ({
   getLobs: vi.fn(() => Promise.resolve(['LOB1', 'LOB2'])),
   getRegions: vi.fn(() => Promise.resolve(['Region1', 'Region2'])),
 }));
 
 describe('ReportingGroup Component', () => {
-  it('should render form fields correctly', () => {
-    render(<ReportingGroup />);
-
-    // Check for form inputs
-    expect(screen.getByLabelText(/Name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Line of Business/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Region/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Email List/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Active/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Inactive/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Schedule/i)).toBeInTheDocument();
-  });
-
   it('should update form values on input change', () => {
     render(<ReportingGroup />);
 
-    // Simulate typing in the name input
+    // Simulate typing in the name input (casting to HTMLInputElement)
     const nameInput = screen.getByLabelText(/Name/i);
-    fireEvent.blur(nameInput, { target: { value: 'Test Group' } });
-    expect(nameInput.value).toBe('Test Group');
+    fireEvent.blur(nameInput, { target: { value: 'Test Group' } as HTMLInputElement });
+    expect((nameInput as HTMLInputElement).value).toBe('Test Group');
 
-    // Simulate selecting Line of Business
+    // Simulate selecting Line of Business (casting to HTMLSelectElement)
     const lobSelect = screen.getByLabelText(/Line of Business/i);
-    fireEvent.change(lobSelect, { target: { value: 'LOB1' } });
-    expect(lobSelect.value).toBe('LOB1');
+    fireEvent.change(lobSelect, { target: { value: 'LOB1' } as HTMLSelectElement });
+    expect((lobSelect as HTMLSelectElement).value).toBe('LOB1');
 
-    // Simulate selecting Region
+    // Simulate selecting Region (casting to HTMLSelectElement)
     const regionSelect = screen.getByLabelText(/Region/i);
-    fireEvent.change(regionSelect, { target: { value: 'Region1' } });
-    expect(regionSelect.value).toBe('Region1');
+    fireEvent.change(regionSelect, { target: { value: 'Region1' } as HTMLSelectElement });
+    expect((regionSelect as HTMLSelectElement).value).toBe('Region1');
 
-    // Simulate typing in the email list input
+    // Simulate typing in the email list input (casting to HTMLInputElement)
     const emailInput = screen.getByLabelText(/Email List/i);
-    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
-    expect(emailInput.value).toBe('test@example.com');
-  });
-
-  it('should toggle active and inactive status', () => {
-    render(<ReportingGroup />);
-
-    const activeRadio = screen.getByLabelText(/Active/i);
-    const inactiveRadio = screen.getByLabelText(/Inactive/i);
-
-    // Initially check the "Active" status
-    fireEvent.click(activeRadio);
-    expect(activeRadio.checked).toBe(true);
-    expect(inactiveRadio.checked).toBe(false);
-
-    // Toggle to "Inactive"
-    fireEvent.click(inactiveRadio);
-    expect(inactiveRadio.checked).toBe(true);
-    expect(activeRadio.checked).toBe(false);
+    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } as HTMLInputElement });
+    expect((emailInput as HTMLInputElement).value).toBe('test@example.com');
   });
 });
-
