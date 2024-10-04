@@ -1,29 +1,33 @@
 // ReportingGroup.test.tsx
+
+// Import Vitest's mocking and type utilities at the top
+import { vi, MockedFunction } from 'vitest';
+
+// Mock the modules before importing anything else
+vi.mock('@okta/okta-react');
+vi.mock('../../../services/MetadataService');
+vi.mock('../../../utils/AppUtils/AppUtils');
+vi.mock('../../../CronSchedule/CronSchedule', () => {
+  // Return a mock component for CronSchedule
+  return {
+    default: vi.fn(() => <div>CronSchedule Component</div>),
+  };
+});
+
+// Now import React and other modules
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ReportingGroup from './ReportingGroup';
 import { useOktaAuth } from '@okta/okta-react';
 import MetadataService from '../../../services/MetadataService';
 import AppUtils from '../../../utils/AppUtils/AppUtils';
-import { vi, MockedFunction, Mock } from 'vitest';
 
-// Define mockCronSchedule as a let variable
-let mockCronSchedule: Mock;
-
-// Mocking modules
-vi.mock('@okta/okta-react');
-vi.mock('../../../services/MetadataService');
-vi.mock('../../../utils/AppUtils/AppUtils');
-vi.mock('../../../CronSchedule/CronSchedule', () => {
-  mockCronSchedule = vi.fn(() => <div>CronSchedule Component</div>);
-  return {
-    default: mockCronSchedule,
-  };
-});
+// Import the mocked CronSchedule module
+import CronSchedule from '../../../CronSchedule/CronSchedule';
 
 describe('ReportingGroup Component', () => {
   beforeEach(() => {
-    // Reset all mocks before each test
+    // Clear all mocks before each test
     vi.clearAllMocks();
 
     // Mock the useOktaAuth hook
@@ -158,6 +162,9 @@ describe('ReportingGroup Component', () => {
     fireEvent.keyDown(regionSelect, { key: 'ArrowDown', code: 'ArrowDown' });
     await waitFor(() => expect(screen.getByText('Region 1')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Region 1'));
+
+    // Access the mock function
+    const mockCronSchedule = CronSchedule as unknown as MockedFunction<any>;
 
     // Wait for the component to re-render
     await waitFor(() => expect(mockCronSchedule).toHaveBeenCalled());
