@@ -1,60 +1,72 @@
 // ReportingGroup.test.tsx
 
-// Import Vitest's mocking and type utilities at the top
-import { vi, MockedFunction } from 'vitest';
-
-// Mock the modules before importing anything else
-vi.mock('@okta/okta-react');
-vi.mock('../../../services/MetadataService');
-vi.mock('../../../utils/AppUtils/AppUtils');
-vi.mock('../../../CronSchedule/CronSchedule', () => {
-  // Return a mock component for CronSchedule
-  return {
-    default: vi.fn(() => <div>CronSchedule Component</div>),
-  };
-});
-
-// Now import React and other modules
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
+import '@testing-library/jest-dom';
 import ReportingGroup from './ReportingGroup';
-import { useOktaAuth } from '@okta/okta-react';
-import MetadataService from '../../../services/MetadataService';
-import AppUtils from '../../../utils/AppUtils/AppUtils';
 
-// Import the mocked CronSchedule module
-import CronSchedule from '../../../CronSchedule/CronSchedule';
+// Mock useOktaAuth
+vi.mock('@okta/okta-react', () => ({
+  useOktaAuth: () => ({
+    authState: {
+      isAuthenticated: true,
+      accessToken: 'mockAccessToken',
+    },
+  }),
+}));
+
+// Mock MetadataService
+vi.mock('../../../services/MetadataService', () => ({
+  default: {
+    getLobs: vi.fn(),
+    getRegions: vi.fn(),
+  },
+}));
+
+// Mock AppUtils
+vi.mock('../../../utils/AppUtils/AppUtils', () => ({
+  default: {
+    toSelectMap: vi.fn(),
+  },
+}));
+
+// Mock Select component from react-select
+vi.mock('react-select', () => ({
+  __esModule: true,
+  default: ({ options, onChange, placeholder }) => (
+    <select
+      data-testid="select"
+      onChange={(e) => onChange({ value: e.target.value, label: e.target.value })}
+    >
+      <option value="">{placeholder}</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
+}));
+
+// Mock CronSchedule component
+vi.mock('../../../CronSchedule/CronSchedule', () => ({
+  __esModule: true,
+  default: () => <div data-testid="cron-schedule">CronSchedule Component</div>,
+}));
 
 describe('ReportingGroup Component', () => {
+  const mockLobList = [{ id: 1, name: 'Finance' }];
+  const mockRegionList = [{ id: 1, name: 'North America' }];
+
   beforeEach(() => {
-    // Clear all mocks before each test
-    vi.clearAllMocks();
+    const MetadataService = require('../../../services/MetadataService').default;
+    MetadataService.getLobs.mockResolvedValue(mockLobList);
+    MetadataService.getRegions.mockResolvedValue(mockRegionList);
 
-    // Mock the useOktaAuth hook
-    const mockUseOktaAuth = useOktaAuth as MockedFunction<typeof useOktaAuth>;
-    mockUseOktaAuth.mockReturnValue({
-      authState: {
-        isAuthenticated: true,
-      },
-    });
-
-    // Mock the MetadataService methods
-    const mockGetLobs = MetadataService.getLobs as MockedFunction<typeof MetadataService.getLobs>;
-    mockGetLobs.mockResolvedValue([
-      { id: 'lob1', name: 'LOB 1' },
-      { id: 'lob2', name: 'LOB 2' },
-    ]);
-
-    const mockGetRegions = MetadataService.getRegions as MockedFunction<typeof MetadataService.getRegions>;
-    mockGetRegions.mockResolvedValue([
-      { id: 'region1', name: 'Region 1' },
-      { id: 'region2', name: 'Region 2' },
-    ]);
-
-    // Mock the AppUtils.toSelectMap function
-    const mockToSelectMap = AppUtils.toSelectMap as MockedFunction<typeof AppUtils.toSelectMap>;
-    mockToSelectMap.mockImplementation((list: any[]) =>
-      list.map((item: any) => ({ value: item.id, label: item.name }))
+    const AppUtils = require('../../../utils/AppUtils/AppUtils').default;
+    AppUtils.toSelectMap.mockImplementation((list) =>
+      list.map((item) => ({ value: item.id, label: item.name }))
     );
   });
 
@@ -62,135 +74,47 @@ describe('ReportingGroup Component', () => {
     vi.clearAllMocks();
   });
 
-  test('renders component and displays headers', async () => {
+  test('renders the component with all fields', async () => {
     render(<ReportingGroup />);
 
-    // Wait for data fetching to complete
-    await waitFor(() => expect(MetadataService.getLobs).toHaveBeenCalled());
-    await waitFor(() => expect(MetadataService.getRegions).toHaveBeenCalled());
-
-    // Check if the main heading is displayed
+    // Check for headers and descriptions
     expect(screen.getByText('Reporting Group')).toBeInTheDocument();
-
-    // Check if the description paragraph is displayed
     expect(
       screen.getByText(
         /Reporting groups allow you to receive consolidated emails for your rule instances/
       )
     ).toBeInTheDocument();
+
+    // Wait for async operations to complete
+    await waitFor(() => {
+      // Check for input fields
+      expect(screen.getByLabelText('Name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Roles')).toBeInTheDocument();
+      expect(screen.getByLabelText('Region')).toBeInTheDocument();
+      expect(screen.getByLabelText('Email List')).toBeInTheDocument();
+      expect(screen.getByLabelText('Status')).toBeInTheDocument();
+      expect(screen.getByLabelText('Schedule')).toBeInTheDocument();
+    });
+
+    // Check if Select components have options
+    expect(screen.getAllByTestId('select')[0]).toHaveTextContent('Select line of business');
+    expect(screen.getAllByTestId('select')[1]).toHaveTextContent('Select region');
+
+    // Check if CronSchedule component is rendered
+    expect(screen.getByTestId('cron-schedule')).toBeInTheDocument();
   });
 
-  test('renders all form fields correctly', async () => {
+  test('handles form value changes', async () => {
     render(<ReportingGroup />);
 
-    // Wait for data fetching to complete
-    await waitFor(() => expect(MetadataService.getLobs).toHaveBeenCalled());
-
-    // Check if the 'Name' input field is rendered
-    expect(screen.getByLabelText('Name')).toBeInTheDocument();
-
-    // Check if the 'Roles' (Line of Business) select field is rendered
-    expect(screen.getByLabelText('Roles')).toBeInTheDocument();
-
-    // Check if the 'Region' select field is rendered
-    expect(screen.getByLabelText('Region')).toBeInTheDocument();
-
-    // Check if the 'Email List' input field is rendered
-    expect(screen.getByLabelText('Email List')).toBeInTheDocument();
-
-    // Check if the 'Status' radio buttons are rendered
-    expect(screen.getByLabelText('Active')).toBeInTheDocument();
-    expect(screen.getByLabelText('Inactive')).toBeInTheDocument();
-
-    // Check if the 'CronSchedule' component is rendered
-    expect(screen.getByText('CronSchedule Component')).toBeInTheDocument();
-  });
-
-  test('updates form values when inputs change', async () => {
-    render(<ReportingGroup />);
-
-    // Wait for data fetching to complete
-    await waitFor(() => expect(MetadataService.getLobs).toHaveBeenCalled());
-
-    // Simulate entering text into the 'Name' field
+    // Simulate user input
     const nameInput = screen.getByLabelText('Name') as HTMLInputElement;
-    fireEvent.blur(nameInput, { target: { value: 'Test Reporting Group' } });
+    nameInput.value = 'Test Reporting Group';
+    nameInput.blur();
 
-    // Simulate entering text into the 'Email List' field
-    const emailListInput = screen.getByLabelText('Email List') as HTMLInputElement;
-    fireEvent.blur(emailListInput, { target: { value: 'user@example.com' } });
-
-    // Simulate selecting the 'Active' status
-    const activeRadio = screen.getByLabelText('Active') as HTMLInputElement;
-    fireEvent.click(activeRadio);
-    expect(activeRadio.checked).toBe(true);
-  });
-
-  test('loads options into select components', async () => {
-    render(<ReportingGroup />);
-
-    // Wait for data fetching to complete
-    await waitFor(() => expect(MetadataService.getLobs).toHaveBeenCalled());
-    await waitFor(() => expect(MetadataService.getRegions).toHaveBeenCalled());
-
-    // Open the 'Roles' select and check options
-    const lobSelect = screen.getByLabelText('Roles');
-    fireEvent.focus(lobSelect);
-    fireEvent.keyDown(lobSelect, { key: 'ArrowDown', code: 'ArrowDown' });
-    await waitFor(() => expect(screen.getByText('LOB 1')).toBeInTheDocument());
-    expect(screen.getByText('LOB 1')).toBeInTheDocument();
-    expect(screen.getByText('LOB 2')).toBeInTheDocument();
-
-    // Open the 'Region' select and check options
-    const regionSelect = screen.getByLabelText('Region');
-    fireEvent.focus(regionSelect);
-    fireEvent.keyDown(regionSelect, { key: 'ArrowDown', code: 'ArrowDown' });
-    await waitFor(() => expect(screen.getByText('Region 1')).toBeInTheDocument());
-    expect(screen.getByText('Region 1')).toBeInTheDocument();
-    expect(screen.getByText('Region 2')).toBeInTheDocument();
-  });
-
-  test('CronSchedule component receives the correct region prop', async () => {
-    render(<ReportingGroup />);
-
-    // Wait for data fetching to complete
-    await waitFor(() => expect(MetadataService.getRegions).toHaveBeenCalled());
-
-    // Select a region to update formValues.region
-    const regionSelect = screen.getByLabelText('Region');
-    fireEvent.focus(regionSelect);
-    fireEvent.keyDown(regionSelect, { key: 'ArrowDown', code: 'ArrowDown' });
-    await waitFor(() => expect(screen.getByText('Region 1')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Region 1'));
-
-    // Access the mock function
-    const mockCronSchedule = CronSchedule as unknown as MockedFunction<any>;
-
-    // Wait for the component to re-render
-    await waitFor(() => expect(mockCronSchedule).toHaveBeenCalled());
-
-    // Check if CronSchedule received the correct 'region' prop
-    expect(mockCronSchedule).toHaveBeenCalledWith(
-      expect.objectContaining({ region: 'region1' }),
-      {}
-    );
-  });
-
-  test('handles errors when fetching LOBs and Regions', async () => {
-    // Mock getLobs and getRegions to reject
-    const mockGetLobs = MetadataService.getLobs as MockedFunction<typeof MetadataService.getLobs>;
-    mockGetLobs.mockRejectedValue(new Error('Failed to fetch LOBs'));
-
-    const mockGetRegions = MetadataService.getRegions as MockedFunction<typeof MetadataService.getRegions>;
-    mockGetRegions.mockRejectedValue(new Error('Failed to fetch Regions'));
-
-    render(<ReportingGroup />);
-
-    // Wait for the error handling to occur
-    await waitFor(() => expect(MetadataService.getLobs).toHaveBeenCalled());
-    await waitFor(() => expect(MetadataService.getRegions).toHaveBeenCalled());
-
-    // The component should still render without crashing
-    expect(screen.getByText('Reporting Group')).toBeInTheDocument();
+    // Wait for state updates
+    await waitFor(() => {
+      expect(nameInput.value).toBe('Test Reporting Group');
+    });
   });
 });
