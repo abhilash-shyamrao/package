@@ -13,23 +13,40 @@ describe('ReportingGroup Component', () => {
     render(<ReportingGroup />);
 
     // Simulate typing in the name input (casting to HTMLInputElement)
-    const nameInput = screen.getByLabelText(/Name/i);
-    fireEvent.blur(nameInput, { target: { value: 'Test Group' } as HTMLInputElement });
-    expect((nameInput as HTMLInputElement).value).toBe('Test Group');
+    const nameInput = screen.getByLabelText(/Name/i) as HTMLInputElement;
+    fireEvent.blur(nameInput, { target: { value: 'Test Group' } });
+    expect(nameInput.value).toBe('Test Group');
 
     // Simulate selecting Line of Business (casting to HTMLSelectElement)
-    const lobSelect = screen.getByLabelText(/Line of Business/i);
-    fireEvent.change(lobSelect, { target: { value: 'LOB1' } as HTMLSelectElement });
-    expect((lobSelect as HTMLSelectElement).value).toBe('LOB1');
+    const lobSelect = screen.getByLabelText(/Line of Business/i) as HTMLSelectElement;
+    fireEvent.change(lobSelect, { target: { value: 'LOB1' } });
+    expect(lobSelect.value).toBe('LOB1');
 
     // Simulate selecting Region (casting to HTMLSelectElement)
-    const regionSelect = screen.getByLabelText(/Region/i);
-    fireEvent.change(regionSelect, { target: { value: 'Region1' } as HTMLSelectElement });
-    expect((regionSelect as HTMLSelectElement).value).toBe('Region1');
+    const regionSelect = screen.getByLabelText(/Region/i) as HTMLSelectElement;
+    fireEvent.change(regionSelect, { target: { value: 'Region1' } });
+    expect(regionSelect.value).toBe('Region1');
 
     // Simulate typing in the email list input (casting to HTMLInputElement)
-    const emailInput = screen.getByLabelText(/Email List/i);
-    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } as HTMLInputElement });
-    expect((emailInput as HTMLInputElement).value).toBe('test@example.com');
+    const emailInput = screen.getByLabelText(/Email List/i) as HTMLInputElement;
+    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
+    expect(emailInput.value).toBe('test@example.com');
+  });
+
+  it('should toggle active and inactive status', () => {
+    render(<ReportingGroup />);
+
+    const activeRadio = screen.getByLabelText(/Active/i) as HTMLInputElement;
+    const inactiveRadio = screen.getByLabelText(/Inactive/i) as HTMLInputElement;
+
+    // Initially check the "Active" status
+    fireEvent.click(activeRadio);
+    expect(activeRadio.checked).toBe(true);
+    expect(inactiveRadio.checked).toBe(false);
+
+    // Toggle to "Inactive"
+    fireEvent.click(inactiveRadio);
+    expect(inactiveRadio.checked).toBe(true);
+    expect(activeRadio.checked).toBe(false);
   });
 });
