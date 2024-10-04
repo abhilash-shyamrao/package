@@ -1,6 +1,14 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import ReportingGroup from './ReportingGroup'; // Adjust to the correct path of your component
+import ReportingGroup from './ReportingGroup'; // Ensure the correct path to your component
 import { vi } from 'vitest';
+
+// Mock useOktaAuth
+vi.mock('@okta/okta-react', () => ({
+  useOktaAuth: () => ({
+    authState: { isAuthenticated: true },
+    oktaAuth: { signInWithRedirect: vi.fn(), signOut: vi.fn() },
+  }),
+}));
 
 // Mock MetadataService to avoid actual API calls
 vi.mock('../../services/MetadataService', () => ({
