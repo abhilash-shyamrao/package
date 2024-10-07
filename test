@@ -3,12 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, MockedFunction } from 'vitest';
 import ReportingGroup from './ReportingGroup';
 import { useOktaAuth } from '@okta/okta-react';
+import { OktaAuth } from '@okta/okta-auth-js';
 import MetadataService from '../../../services/MetadataService';
 import AppUtils from '../../../utils/AppUtils/AppUtils';
 
 // Mock dependencies
-
-// Ensure mocks are set up before importing the component
 vi.mock('@okta/okta-react', () => ({
   useOktaAuth: vi.fn(),
 }));
@@ -35,10 +34,17 @@ describe('ReportingGroup Component', () => {
     vi.resetAllMocks();
 
     // Mock useOktaAuth to return an object with authState and oktaAuth
-    const mockedUseOktaAuth = useOktaAuth as jest.MockedFunction<typeof useOktaAuth>;
+    const mockedUseOktaAuth = useOktaAuth as MockedFunction<typeof useOktaAuth>;
+
+    // Provide a minimal mock of OktaAuth
+    const mockOktaAuth = {
+      tokenManager: {},
+      // Add any minimal required methods or properties here if needed
+    } as unknown as OktaAuth;
+
     mockedUseOktaAuth.mockReturnValue({
       authState: {},
-      oktaAuth: {}, // Include oktaAuth property
+      oktaAuth: mockOktaAuth,
     });
   });
 
@@ -78,7 +84,6 @@ describe('ReportingGroup Component', () => {
     });
 
     // Check if options are rendered in Select components
-    // Since we are using react-select, we need to open the menu to see the options
     const lobSelect = screen.getByLabelText('Roles');
     fireEvent.focus(lobSelect);
     fireEvent.keyDown(lobSelect, { key: 'ArrowDown', code: 'ArrowDown' });
@@ -106,6 +111,6 @@ describe('ReportingGroup Component', () => {
     const emailInput = screen.getByLabelText('Email List');
     fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
 
-    // Additional assertions can be added here to check if state updates
+    // Additional assertions can be added here to check if state updates as expected
   });
 });
