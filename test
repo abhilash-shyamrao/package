@@ -34,10 +34,11 @@ describe('ReportingGroup Component', () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
-    // Mock useOktaAuth to return an object with authState
+    // Mock useOktaAuth to return an object with authState and oktaAuth
     const mockedUseOktaAuth = useOktaAuth as jest.MockedFunction<typeof useOktaAuth>;
     mockedUseOktaAuth.mockReturnValue({
       authState: {},
+      oktaAuth: {}, // Include oktaAuth property
     });
   });
 
