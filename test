@@ -13,12 +13,16 @@ vi.mock('@okta/okta-react', () => ({
 }));
 
 vi.mock('../../../services/MetadataService', () => ({
-  getLobs: vi.fn(),
-  getRegions: vi.fn(),
+  default: {
+    getLobs: vi.fn(),
+    getRegions: vi.fn(),
+  },
 }));
 
 vi.mock('../../../utils/AppUtils/AppUtils', () => ({
-  toSelectMap: vi.fn(),
+  default: {
+    toSelectMap: vi.fn(),
+  },
 }));
 
 vi.mock('../../../CronSchedule/CronSchedule', () => ({
@@ -37,11 +41,11 @@ describe('ReportingGroup Component', () => {
     });
 
     // Mock getLobs and getRegions
-    (MetadataService.getLobs as jest.Mock).mockResolvedValue([]);
-    (MetadataService.getRegions as jest.Mock).mockResolvedValue([]);
+    (MetadataService.getLobs as jest.MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue([]);
+    (MetadataService.getRegions as jest.MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue([]);
 
     // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as jest.Mock).mockReturnValue([]);
+    (AppUtils.toSelectMap as jest.MockedFunction<typeof AppUtils.toSelectMap>).mockReturnValue([]);
 
     render(<ReportingGroup />);
 
@@ -59,11 +63,11 @@ describe('ReportingGroup Component', () => {
     const mockRegions = [{ id: 1, name: 'Region1' }];
 
     // Mock getLobs and getRegions
-    (MetadataService.getLobs as jest.Mock).mockResolvedValue(mockLobs);
-    (MetadataService.getRegions as jest.Mock).mockResolvedValue(mockRegions);
+    (MetadataService.getLobs as jest.MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue(mockLobs);
+    (MetadataService.getRegions as jest.MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue(mockRegions);
 
     // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as jest.Mock).mockImplementation((list) =>
+    (AppUtils.toSelectMap as jest.MockedFunction<typeof AppUtils.toSelectMap>).mockImplementation((list) =>
       list.map((item) => ({ value: item.id, label: item.name }))
     );
 
@@ -91,11 +95,11 @@ describe('ReportingGroup Component', () => {
     });
 
     // Mock getLobs and getRegions
-    (MetadataService.getLobs as jest.Mock).mockResolvedValue([]);
-    (MetadataService.getRegions as jest.Mock).mockResolvedValue([]);
+    (MetadataService.getLobs as jest.MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue([]);
+    (MetadataService.getRegions as jest.MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue([]);
 
     // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as jest.Mock).mockReturnValue([]);
+    (AppUtils.toSelectMap as jest.MockedFunction<typeof AppUtils.toSelectMap>).mockReturnValue([]);
 
     render(<ReportingGroup />);
 
