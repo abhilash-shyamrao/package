@@ -1,1 +1,112 @@
-.
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
+import ReportingGroup from './ReportingGroup';
+import { useOktaAuth } from '@okta/okta-react';
+import MetadataService from '../../../services/MetadataService';
+import AppUtils from '../../../utils/AppUtils/AppUtils';
+import CronSchedule from '../../../CronSchedule/CronSchedule';
+
+// Mock dependencies
+vi.mock('@okta/okta-react', () => ({
+  useOktaAuth: vi.fn(),
+}));
+
+vi.mock('../../../services/MetadataService', () => ({
+  getLobs: vi.fn(),
+  getRegions: vi.fn(),
+}));
+
+vi.mock('../../../utils/AppUtils/AppUtils', () => ({
+  toSelectMap: vi.fn(),
+}));
+
+vi.mock('../../../CronSchedule/CronSchedule', () => ({
+  default: () => <div>CronSchedule Component</div>,
+}));
+
+describe('ReportingGroup Component', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('renders without crashing', async () => {
+    // Mock useOktaAuth
+    (useOktaAuth as jest.Mock).mockReturnValue({
+      authState: {},
+    });
+
+    // Mock getLobs and getRegions
+    (MetadataService.getLobs as jest.Mock).mockResolvedValue([]);
+    (MetadataService.getRegions as jest.Mock).mockResolvedValue([]);
+
+    // Mock AppUtils.toSelectMap
+    (AppUtils.toSelectMap as jest.Mock).mockReturnValue([]);
+
+    render(<ReportingGroup />);
+
+    // Check if component renders
+    expect(screen.getByText('Reporting Group')).toBeInTheDocument();
+  });
+
+  test('fetches lobList and regionList on mount', async () => {
+    // Mock useOktaAuth
+    (useOktaAuth as jest.Mock).mockReturnValue({
+      authState: {},
+    });
+
+    const mockLobs = [{ id: 1, name: 'LOB1' }];
+    const mockRegions = [{ id: 1, name: 'Region1' }];
+
+    // Mock getLobs and getRegions
+    (MetadataService.getLobs as jest.Mock).mockResolvedValue(mockLobs);
+    (MetadataService.getRegions as jest.Mock).mockResolvedValue(mockRegions);
+
+    // Mock AppUtils.toSelectMap
+    (AppUtils.toSelectMap as jest.Mock).mockImplementation((list) =>
+      list.map((item) => ({ value: item.id, label: item.name }))
+    );
+
+    render(<ReportingGroup />);
+
+    // Wait for useEffect to complete
+    await waitFor(() => {
+      expect(MetadataService.getLobs).toHaveBeenCalled();
+      expect(MetadataService.getRegions).toHaveBeenCalled();
+    });
+
+    // Check if options are rendered in Select components
+    const lobSelect = screen.getByLabelText('Roles');
+    fireEvent.focus(lobSelect);
+
+    await waitFor(() => {
+      expect(screen.getByText('LOB1')).toBeInTheDocument();
+    });
+  });
+
+  test('handles input changes correctly', async () => {
+    // Mock useOktaAuth
+    (useOktaAuth as jest.Mock).mockReturnValue({
+      authState: {},
+    });
+
+    // Mock getLobs and getRegions
+    (MetadataService.getLobs as jest.Mock).mockResolvedValue([]);
+    (MetadataService.getRegions as jest.Mock).mockResolvedValue([]);
+
+    // Mock AppUtils.toSelectMap
+    (AppUtils.toSelectMap as jest.Mock).mockReturnValue([]);
+
+    render(<ReportingGroup />);
+
+    // Simulate entering name
+    const nameInput = screen.getByLabelText('Name');
+    fireEvent.blur(nameInput, { target: { value: 'Test Reporting Group' } });
+
+    // Simulate entering email list
+    const emailInput = screen.getByLabelText('Email List');
+    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
+
+    // Additional assertions can be added here to check if state updates
+  });
+});
