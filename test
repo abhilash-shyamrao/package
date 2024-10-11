@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import ReportingGroup from './ReportingGroup';
 import { MetadataService } from '../../../../services/MetadataService/MetadataService';
+import AppUtils from '../../../../../utils/AppUtils';
 
 // Mock dependencies
 vi.mock('@okta/okta-react', () => ({
@@ -15,6 +16,10 @@ vi.mock('../../../CronSchedule/CronSchedule', () => ({
   default: () => <div>CronSchedule Component</div>
 }));
 
+vi.mock('../../../../../utils/AppUtils', () => ({
+  toSelectMap: (items: any[]) => items.map(item => ({ label: item, value: item }))
+}));
+
 describe('ReportingGroup Component', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -22,7 +27,7 @@ describe('ReportingGroup Component', () => {
     vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(['us-east-1']);
   });
 
-  test('renders without crashing', async () => {
+  test('renders without crashing and displays components correctly', async () => {
     render(<ReportingGroup />);
     await waitFor(() => {
       expect(screen.getByText('Reporting Groups')).toBeDefined();
@@ -34,25 +39,25 @@ describe('ReportingGroup Component', () => {
     const { container } = render(<ReportingGroup />);
     const nameInput = container.querySelector('#name') as HTMLInputElement;
     const descriptionInput = container.querySelector('#description') as HTMLInputElement;
-    expect(nameInput.value).toBe('');  // Expect initial value to be empty
-    expect(descriptionInput.value).toBe('');  // Expect initial value to be empty
+    expect(nameInput.value).toBe('');  // Initial value empty
+    expect(descriptionInput.value).toBe('');  // Initial value empty
   });
 
-  test('should handle value change when name is updated', async () => {
+  test('should update name field on input', async () => {
     const { container } = render(<ReportingGroup />);
-    const nameInput = container.querySelector('#name') as any;
-    await userEvent.type(nameInput, 'Test name[Tab]');
+    const nameInput = container.querySelector('#name') as HTMLInputElement;
+    await userEvent.type(nameInput, 'Test name');
     expect(nameInput.value).toBe('Test name');
   });
 
-  test('should handle value change when description is updated', async () => {
+  test('should update description field on input', async () => {
     const { container } = render(<ReportingGroup />);
-    const descriptionInput = container.querySelector('#description') as any;
-    await userEvent.type(descriptionInput, 'Test description[Tab]');
+    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
+    await userEvent.type(descriptionInput, 'Test description');
     expect(descriptionInput.value).toBe('Test description');
   });
 
-  test('should trigger onBlurChange when inputs lose focus', async () => {
+  test('should handle onBlur and trigger onChange when inputs lose focus', async () => {
     const onChangeMock = vi.fn();
     const { container } = render(<ReportingGroup onChange={onChangeMock} />);
     
@@ -65,67 +70,100 @@ describe('ReportingGroup Component', () => {
     }));
   });
 
-  test('should handle access role dropdown change', async () => {
+  test('should handle LoB dropdown selection change', async () => {
     const { container } = render(<ReportingGroup />);
-    const typeDropdown = container.querySelector('#lob div[class*=-control]') as any;
-    await userEvent.click(typeDropdown);
-    const typeOption = container.querySelectorAll('div[class*=-option]') as any;
-    await userEvent.click(typeOption[0]);
-    expect(typeOption[0].innerHTML).toBe('vgi-platform-int');
+    const lobDropdown = container.querySelector('#lob div[class*=-control]') as any;
+    await userEvent.click(lobDropdown);
+    const lobOption = container.querySelectorAll('div[class*=-option]') as any;
+    await userEvent.click(lobOption[0]);
+    expect(lobOption[0].innerHTML).toBe('vgi-platform-int');
   });
 
-  test('should handle region dropdown change', async () => {
+  test('should handle region dropdown selection change', async () => {
     const { container } = render(<ReportingGroup />);
-    const typeDropdown = container.querySelector('#region div[class*=-control]') as any;
-    await userEvent.click(typeDropdown);
-    const typeOption = container.querySelectorAll('div[class*=-option]') as any;
-    await userEvent.click(typeOption[0]);
-    expect(typeOption[0].innerHTML).toBe('us-east-1');
+    const regionDropdown = container.querySelector('#region div[class*=-control]') as any;
+    await userEvent.click(regionDropdown);
+    const regionOption = container.querySelectorAll('div[class*=-option]') as any;
+    await userEvent.click(regionOption[0]);
+    expect(regionOption[0].innerHTML).toBe('us-east-1');
   });
 
-  test('should handle empty lists from MetadataService', async () => {
+  test('should update and trigger onBlur when status radio button is changed to Active', async () => {
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
+    
+    const activeRadio = container.querySelector('#active-status') as HTMLInputElement;
+    await userEvent.click(activeRadio);
+    activeRadio.blur();  // Trigger onBlurChange
+    
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      status: 'Active'
+    }));
+  });
+
+  test('should update and trigger onBlur when status radio button is changed to Inactive', async () => {
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
+    
+    const inactiveRadio = container.querySelector('#inactive-status') as HTMLInputElement;
+    await userEvent.click(inactiveRadio);
+    inactiveRadio.blur();  // Trigger onBlurChange
+    
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      status: 'Inactive'
+    }));
+  });
+
+  test('should render the CronSchedule component correctly', async () => {
+    render(<ReportingGroup />);
+    await waitFor(() => {
+      expect(screen.getByText('CronSchedule Component')).toBeDefined();
+    });
+  });
+
+  test('should handle empty LoB and region lists gracefully', async () => {
     vi.spyOn(MetadataService, 'getLobs').mockResolvedValue([]);
     vi.spyOn(MetadataService, 'getRegions').mockResolvedValue([]);
+    
     render(<ReportingGroup />);
     
     await waitFor(() => {
-      const lobDropdown = screen.queryByText('Select line of business');
-      const regionDropdown = screen.queryByText('Select region');
-      expect(lobDropdown).toBeDefined();
-      expect(regionDropdown).toBeDefined();
+      expect(screen.getByPlaceholderText('Select line of business')).toBeDefined();
+      expect(screen.getByPlaceholderText('Select region')).toBeDefined();
     });
   });
 
-  test('should call MetadataService on load and set values', async () => {
-    const getLobsSpy = vi.spyOn(MetadataService, 'getLobs');
-    const getRegionsSpy = vi.spyOn(MetadataService, 'getRegions');
-    
+  test('should handle error in MetadataService for LoB and regions', async () => {
+    // Mocking rejected values for both LoB and Region services
+    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue(Promise.reject(new Error('Error fetching lobs')));
+    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(Promise.reject(new Error('Error fetching regions')));
+
     render(<ReportingGroup />);
 
     await waitFor(() => {
-      expect(getLobsSpy).toHaveBeenCalled();
-      expect(getRegionsSpy).toHaveBeenCalled();
+      expect(screen.queryByText('Select line of business')).toBeNull();
+      expect(screen.queryByText('Select region')).toBeNull();
     });
   });
 
-  test('should set form values when props.data is provided', async () => {
-    const mockData = {
+  test('should update form values from props when provided', async () => {
+    const initialData = {
       "reporting-groups": {
-        name: "Existing Name",
-        description: "Existing Description",
-        lobValue: { label: "LOB 1", value: "LOB 1" },
-        regionValue: { label: "Region 1", value: "Region 1" },
+        name: 'Initial name',
+        description: 'Initial description',
+        status: 'Active',
+        region: 'us-east-1',
+        lob: 'vgi-platform-int'
       }
     };
-
-    const { container } = render(<ReportingGroup data={mockData} />);
+    
+    render(<ReportingGroup data={initialData} />);
     
     await waitFor(() => {
-      const nameInput = container.querySelector('#name') as HTMLInputElement;
-      const descriptionInput = container.querySelector('#description') as HTMLInputElement;
-      
-      expect(nameInput.value).toBe('Existing Name');
-      expect(descriptionInput.value).toBe('Existing Description');
+      expect(screen.getByDisplayValue('Initial name')).toBeDefined();
+      expect(screen.getByDisplayValue('Initial description')).toBeDefined();
+      expect(screen.getByDisplayValue('Active')).toBeDefined();
+      expect(screen.getByDisplayValue('us-east-1')).toBeDefined();
     });
   });
 });
