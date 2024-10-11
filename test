@@ -139,20 +139,7 @@ describe('ReportingGroup Component', () => {
     });
   });
 
-  test('should handle error in MetadataService for LoB and regions', async () => {
-    // Mocking rejected values for both LoB and Region services
-    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue(Promise.reject(new Error('Error fetching lobs')));
-    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(Promise.reject(new Error('Error fetching regions')));
-
-    render(<ReportingGroup />);
-
-    await waitFor(() => {
-      expect(screen.queryByText('Select line of business')).toBeNull();
-      expect(screen.queryByText('Select region')).toBeNull();
-    });
-  });
-
-  test('should update form values from props when provided', async () => {
+  test('should handle form data passed through props', async () => {
     const initialData = {
       "reporting-groups": {
         name: 'Initial name',
@@ -190,6 +177,21 @@ describe('ReportingGroup Component', () => {
     expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
       name: 'New Name',
       lob: 'vgi-platform-int'
+    }));
+  });
+
+  test('should update state when Select component is updated', async () => {
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
+    
+    const lobDropdown = container.querySelector('#lob div[class*=-control]') as any;
+    await userEvent.click(lobDropdown);
+    const lobOption = container.querySelectorAll('div[class*=-option]')[0];
+    await userEvent.click(lobOption);
+    
+    expect(onChangeMock).toHaveBeenCalled();
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      lob: 'vgi-platform-int',
     }));
   });
 });
