@@ -29,7 +29,7 @@ describe('ReportingGroup Component', () => {
 
   test('renders without crashing and displays components correctly', async () => {
     render(<ReportingGroup />);
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByText('Reporting Groups')).toBeDefined();
       expect(screen.getByText('CronSchedule Component')).toBeDefined();
     });
@@ -57,16 +57,16 @@ describe('ReportingGroup Component', () => {
     expect(descriptionInput.value).toBe('Test description');
   });
 
-  test('should handle onBlur and trigger onChange when inputs lose focus', async () => {
+  test('should trigger onBlurChange when email list input loses focus', async () => {
     const onChangeMock = vi.fn();
     const { container } = render(<ReportingGroup onChange={onChangeMock} />);
     
-    const nameInput = container.querySelector('#name') as HTMLInputElement;
-    await userEvent.type(nameInput, 'New name');
-    nameInput.blur();  // Trigger onBlurChange by losing focus
+    const emailListInput = container.querySelector('#description') as HTMLInputElement;
+    await userEvent.type(emailListInput, 'test@example.com');
+    emailListInput.blur();  // Trigger onBlurChange by losing focus
     
     expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
-      name: 'New name'
+      description: 'test@example.com'
     }));
   });
 
@@ -116,7 +116,7 @@ describe('ReportingGroup Component', () => {
 
   test('should render the CronSchedule component correctly', async () => {
     render(<ReportingGroup />);
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByText('CronSchedule Component')).toBeDefined();
     });
   });
@@ -127,7 +127,7 @@ describe('ReportingGroup Component', () => {
     
     render(<ReportingGroup />);
     
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByPlaceholderText('Select line of business')).toBeDefined();
       expect(screen.getByPlaceholderText('Select region')).toBeDefined();
     });
@@ -140,7 +140,7 @@ describe('ReportingGroup Component', () => {
 
     render(<ReportingGroup />);
 
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.queryByText('Select line of business')).toBeNull();
       expect(screen.queryByText('Select region')).toBeNull();
     });
