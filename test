@@ -71,21 +71,27 @@ describe('ReportingGroup Component', () => {
   });
 
   test('should handle LoB dropdown selection change', async () => {
-    const { container } = render(<ReportingGroup />);
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
     const lobDropdown = container.querySelector('#lob div[class*=-control]') as any;
     await userEvent.click(lobDropdown);
     const lobOption = container.querySelectorAll('div[class*=-option]') as any;
     await userEvent.click(lobOption[0]);
-    expect(lobOption[0].innerHTML).toBe('vgi-platform-int');
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      lob: 'vgi-platform-int'
+    }));
   });
 
   test('should handle region dropdown selection change', async () => {
-    const { container } = render(<ReportingGroup />);
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
     const regionDropdown = container.querySelector('#region div[class*=-control]') as any;
     await userEvent.click(regionDropdown);
     const regionOption = container.querySelectorAll('div[class*=-option]') as any;
     await userEvent.click(regionOption[0]);
-    expect(regionOption[0].innerHTML).toBe('us-east-1');
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      region: 'us-east-1'
+    }));
   });
 
   test('should update and trigger onBlur when status radio button is changed to Active', async () => {
@@ -165,5 +171,25 @@ describe('ReportingGroup Component', () => {
       expect(screen.getByDisplayValue('Active')).toBeDefined();
       expect(screen.getByDisplayValue('us-east-1')).toBeDefined();
     });
+  });
+
+  test('should call onInputChange for text fields and dropdowns', async () => {
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
+    
+    const nameInput = container.querySelector('#name') as HTMLInputElement;
+    await userEvent.type(nameInput, 'New Name');
+    expect(nameInput.value).toBe('New Name');
+    nameInput.blur();
+
+    const lobDropdown = container.querySelector('#lob div[class*=-control]') as any;
+    await userEvent.click(lobDropdown);
+    const lobOption = container.querySelectorAll('div[class*=-option]') as any;
+    await userEvent.click(lobOption[0]);
+    
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      name: 'New Name',
+      lob: 'vgi-platform-int'
+    }));
   });
 });
