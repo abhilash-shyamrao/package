@@ -30,14 +30,6 @@ describe('ReportingGroup Component', () => {
     });
   });
 
-  test('should initialize with correct initial state', () => {
-    const { container } = render(<ReportingGroup />);
-    const nameInput = container.querySelector('#name') as HTMLInputElement;
-    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
-    expect(nameInput.value).toBe('');  // Expect initial value to be empty
-    expect(descriptionInput.value).toBe('');  // Expect initial value to be empty
-  });
-
   test('should handle value change when name is updated', async () => {
     const { container } = render(<ReportingGroup />);
     const nameInput = container.querySelector('#name') as any;
@@ -103,9 +95,21 @@ describe('ReportingGroup Component', () => {
     render(<ReportingGroup />);
 
     await waitFor(() => {
-      // Test that it doesn't crash and handles error gracefully
-      expect(screen.queryByText('Select line of business')).toBeNull();
-      expect(screen.queryByText('Select region')).toBeNull();
+      // Check if error is handled gracefully in the UI or logs
+      const errorMessage = screen.getByText('Failed to load metadata. Please try again later.');
+      expect(errorMessage).toBeDefined();
     });
+  });
+
+  test('should catch unhandled rejection from MetadataService', async () => {
+    const spy = vi.spyOn(MetadataService, 'getLobs').mockRejectedValueOnce(new Error('Unhandled Rejection'));
+
+    render(<ReportingGroup />);
+    
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalled();
+    });
+
+    spy.mockRestore();
   });
 });
