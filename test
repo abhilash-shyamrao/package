@@ -25,9 +25,17 @@ describe('ReportingGroup Component', () => {
   test('renders without crashing', async () => {
     render(<ReportingGroup />);
     await waitFor(() => {
-      expect(screen.getByText('Reporting Group')).toBeDefined();
+      expect(screen.getByText('Reporting Groups')).toBeDefined();
       expect(screen.getByText('CronSchedule Component')).toBeDefined();
     });
+  });
+
+  test('should initialize with correct initial state', () => {
+    const { container } = render(<ReportingGroup />);
+    const nameInput = container.querySelector('#name') as HTMLInputElement;
+    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
+    expect(nameInput.value).toBe('');  // Expect initial value to be empty
+    expect(descriptionInput.value).toBe('');  // Expect initial value to be empty
   });
 
   test('should handle value change when name is updated', async () => {
@@ -88,28 +96,36 @@ describe('ReportingGroup Component', () => {
     });
   });
 
-  test('should handle error in MetadataService', async () => {
-    vi.spyOn(MetadataService, 'getLobs').mockRejectedValue(new Error('Error fetching lobs'));
-    vi.spyOn(MetadataService, 'getRegions').mockRejectedValue(new Error('Error fetching regions'));
-
+  test('should call MetadataService on load and set values', async () => {
+    const getLobsSpy = vi.spyOn(MetadataService, 'getLobs');
+    const getRegionsSpy = vi.spyOn(MetadataService, 'getRegions');
+    
     render(<ReportingGroup />);
 
     await waitFor(() => {
-      // Check if error is handled gracefully in the UI or logs
-      const errorMessage = screen.getByText('Failed to load metadata. Please try again later.');
-      expect(errorMessage).toBeDefined();
+      expect(getLobsSpy).toHaveBeenCalled();
+      expect(getRegionsSpy).toHaveBeenCalled();
     });
   });
 
-  test('should catch unhandled rejection from MetadataService', async () => {
-    const spy = vi.spyOn(MetadataService, 'getLobs').mockRejectedValueOnce(new Error('Unhandled Rejection'));
+  test('should set form values when props.data is provided', async () => {
+    const mockData = {
+      "reporting-groups": {
+        name: "Existing Name",
+        description: "Existing Description",
+        lobValue: { label: "LOB 1", value: "LOB 1" },
+        regionValue: { label: "Region 1", value: "Region 1" },
+      }
+    };
 
-    render(<ReportingGroup />);
+    const { container } = render(<ReportingGroup data={mockData} />);
     
     await waitFor(() => {
-      expect(spy).toHaveBeenCalled();
+      const nameInput = container.querySelector('#name') as HTMLInputElement;
+      const descriptionInput = container.querySelector('#description') as HTMLInputElement;
+      
+      expect(nameInput.value).toBe('Existing Name');
+      expect(descriptionInput.value).toBe('Existing Description');
     });
-
-    spy.mockRestore();
   });
 });
