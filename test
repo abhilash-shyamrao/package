@@ -1,116 +1,111 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, MockedFunction } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import ReportingGroup from './ReportingGroup';
-import { useOktaAuth } from '@okta/okta-react';
-import { OktaAuth } from '@okta/okta-auth-js';
-import MetadataService from '../../../services/MetadataService';
-import AppUtils from '../../../utils/AppUtils/AppUtils';
+import { MetadataService } from '../../../../services/MetadataService/MetadataService';
 
 // Mock dependencies
 vi.mock('@okta/okta-react', () => ({
-  useOktaAuth: vi.fn(),
-}));
-
-vi.mock('../../../services/MetadataService', () => ({
-  default: {
-    getLobs: vi.fn(),
-    getRegions: vi.fn(),
-  },
-}));
-
-vi.mock('../../../utils/AppUtils/AppUtils', () => ({
-  default: {
-    toSelectMap: vi.fn(),
-  },
+  useOktaAuth: () => ({
+    authState: { token: 'test' }
+  })
 }));
 
 vi.mock('../../../CronSchedule/CronSchedule', () => ({
-  default: () => <div>CronSchedule Component</div>,
+  default: () => <div>CronSchedule Component</div>
 }));
 
 describe('ReportingGroup Component', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-
-    // Mock useOktaAuth to return an object with authState and oktaAuth
-    const mockedUseOktaAuth = useOktaAuth as MockedFunction<typeof useOktaAuth>;
-
-    // Provide a minimal mock of OktaAuth
-    const mockOktaAuth = {
-      tokenManager: {},
-      // Add any minimal required methods or properties here if needed
-    } as unknown as OktaAuth;
-
-    mockedUseOktaAuth.mockReturnValue({
-      authState: {},
-      oktaAuth: mockOktaAuth,
-    });
+    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue(['vgi-platform-int']);
+    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(['us-east-1']);
   });
 
   test('renders without crashing', async () => {
-    // Mock getLobs and getRegions
-    (MetadataService.getLobs as MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue([]);
-    (MetadataService.getRegions as MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue([]);
-
-    // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as MockedFunction<typeof AppUtils.toSelectMap>).mockReturnValue([]);
-
     render(<ReportingGroup />);
-
-    // Check if component renders
-    expect(screen.getByText('Reporting Group')).toBeInTheDocument();
-  });
-
-  test('fetches lobList and regionList on mount', async () => {
-    const mockLobs = [{ id: 1, name: 'LOB1' }];
-    const mockRegions = [{ id: 1, name: 'Region1' }];
-
-    // Mock getLobs and getRegions
-    (MetadataService.getLobs as MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue(mockLobs);
-    (MetadataService.getRegions as MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue(mockRegions);
-
-    // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as MockedFunction<typeof AppUtils.toSelectMap>).mockImplementation((list) =>
-      list.map((item) => ({ value: item.id, label: item.name }))
-    );
-
-    render(<ReportingGroup />);
-
-    // Wait for useEffect to complete
     await waitFor(() => {
-      expect(MetadataService.getLobs).toHaveBeenCalled();
-      expect(MetadataService.getRegions).toHaveBeenCalled();
-    });
-
-    // Check if options are rendered in Select components
-    const lobSelect = screen.getByLabelText('Roles');
-    fireEvent.focus(lobSelect);
-    fireEvent.keyDown(lobSelect, { key: 'ArrowDown', code: 'ArrowDown' });
-
-    await waitFor(() => {
-      expect(screen.getByText('LOB1')).toBeInTheDocument();
+      expect(screen.getByText('Reporting Group')).toBeDefined();
+      expect(screen.getByText('CronSchedule Component')).toBeDefined();
     });
   });
 
-  test('handles input changes correctly', async () => {
-    // Mock getLobs and getRegions
-    (MetadataService.getLobs as MockedFunction<typeof MetadataService.getLobs>).mockResolvedValue([]);
-    (MetadataService.getRegions as MockedFunction<typeof MetadataService.getRegions>).mockResolvedValue([]);
+  test('should initialize with correct initial state', () => {
+    const { container } = render(<ReportingGroup />);
+    const nameInput = container.querySelector('#name') as HTMLInputElement;
+    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
+    expect(nameInput.value).toBe('');  // Expect initial value to be empty
+    expect(descriptionInput.value).toBe('');  // Expect initial value to be empty
+  });
 
-    // Mock AppUtils.toSelectMap
-    (AppUtils.toSelectMap as MockedFunction<typeof AppUtils.toSelectMap>).mockReturnValue([]);
+  test('should handle value change when name is updated', async () => {
+    const { container } = render(<ReportingGroup />);
+    const nameInput = container.querySelector('#name') as any;
+    await userEvent.type(nameInput, 'Test name[Tab]');
+    expect(nameInput.value).toBe('Test name');
+  });
+
+  test('should handle value change when description is updated', async () => {
+    const { container } = render(<ReportingGroup />);
+    const descriptionInput = container.querySelector('#description') as any;
+    await userEvent.type(descriptionInput, 'Test description[Tab]');
+    expect(descriptionInput.value).toBe('Test description');
+  });
+
+  test('should trigger onBlurChange when inputs lose focus', async () => {
+    const onChangeMock = vi.fn();
+    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
+    
+    const nameInput = container.querySelector('#name') as HTMLInputElement;
+    await userEvent.type(nameInput, 'New name');
+    nameInput.blur();  // Trigger onBlurChange by losing focus
+    
+    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
+      name: 'New name'
+    }));
+  });
+
+  test('should handle access role dropdown change', async () => {
+    const { container } = render(<ReportingGroup />);
+    const typeDropdown = container.querySelector('#lob div[class*=-control]') as any;
+    await userEvent.click(typeDropdown);
+    const typeOption = container.querySelectorAll('div[class*=-option]') as any;
+    await userEvent.click(typeOption[0]);
+    expect(typeOption[0].innerHTML).toBe('vgi-platform-int');
+  });
+
+  test('should handle region dropdown change', async () => {
+    const { container } = render(<ReportingGroup />);
+    const typeDropdown = container.querySelector('#region div[class*=-control]') as any;
+    await userEvent.click(typeDropdown);
+    const typeOption = container.querySelectorAll('div[class*=-option]') as any;
+    await userEvent.click(typeOption[0]);
+    expect(typeOption[0].innerHTML).toBe('us-east-1');
+  });
+
+  test('should handle empty lists from MetadataService', async () => {
+    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue([]);
+    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue([]);
+    render(<ReportingGroup />);
+    
+    await waitFor(() => {
+      const lobDropdown = screen.queryByText('Select line of business');
+      const regionDropdown = screen.queryByText('Select region');
+      expect(lobDropdown).toBeDefined();
+      expect(regionDropdown).toBeDefined();
+    });
+  });
+
+  test('should handle error in MetadataService', async () => {
+    vi.spyOn(MetadataService, 'getLobs').mockRejectedValue(new Error('Error fetching lobs'));
+    vi.spyOn(MetadataService, 'getRegions').mockRejectedValue(new Error('Error fetching regions'));
 
     render(<ReportingGroup />);
 
-    // Simulate entering name
-    const nameInput = screen.getByLabelText('Name');
-    fireEvent.blur(nameInput, { target: { value: 'Test Reporting Group' } });
-
-    // Simulate entering email list
-    const emailInput = screen.getByLabelText('Email List');
-    fireEvent.blur(emailInput, { target: { value: 'test@example.com' } });
-
-    // Additional assertions can be added here to check if state updates as expected
+    await waitFor(() => {
+      // Test that it doesn't crash and handles error gracefully
+      expect(screen.queryByText('Select line of business')).toBeNull();
+      expect(screen.queryByText('Select region')).toBeNull();
+    });
   });
 });
