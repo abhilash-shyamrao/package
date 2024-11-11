@@ -1,169 +1,63 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import ReportingGroup from './ReportingGroup';
-import { MetadataService } from '../../../../services/MetadataService/MetadataService';
-import AppUtils from '../../../../../utils/AppUtils';
+CREATE VIEW v_dq_results AS
+SELECT 
+    -- From dq_results_master
+    master.dq_result_id,
+    master.job_run_id,
+    master.job_start_time,
+    master.job_end_time,
+    master.dq_config_id,
+    master.dq_config_name,
+    master.dq_rule_id_list,
+    master.reporting_group_id_list,
+    master.runtime_config,
+    master.execution_region,
+    master.error_category,
+    master.error_message,
+    master.score,
 
-// Mock dependencies
-vi.mock('@okta/okta-react', () => ({
-  useOktaAuth: () => ({
-    authState: { token: 'test' }
-  })
-}));
+    -- From dqc_results_rule_details
+    rule.result_item_id AS rule_result_item_id,
+    rule.rule_name,
+    rule.rule_definition,
+    rule.rule_evaluation_message,
+    rule.result_status,
+    rule.evaluation_metrics,
+    rule.evaluated_rule,
+    rule.created_by AS rule_created_by,
+    rule.created_on AS rule_created_on,
 
-vi.mock('../../../CronSchedule/CronSchedule', () => ({
-  default: () => <div>CronSchedule Component</div>
-}));
+    -- From dq_results_observation_details
+    obs.observation_item_id,
+    obs.observation_description,
+    obs.observation_metric_name,
+    obs.observation_statistic_id,
+    obs.observation_metric_expected_value,
+    obs.observation_metric_actual_value,
+    obs.observation_metric_lower_limit,
+    obs.observation_metric_upper_limit,
+    obs.observation_new_rules,
+    obs.created_by AS observation_created_by,
+    obs.created_on AS observation_created_on,
 
-vi.mock('../../../../../utils/AppUtils', () => ({
-  toSelectMap: (items: any[]) => items.map(item => ({ label: item, value: item }))
-}));
+    -- From dq_results_analyzer_details
+    analyzer.analyzer_result_item_id,
+    analyzer.analyzer_name,
+    analyzer.analyzer_definition,
+    analyzer.analyzer_evaluated_metric,
+    analyzer.created_by AS analyzer_created_by,
+    analyzer.created_on AS analyzer_created_on
 
-describe('ReportingGroup Component', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue(['vgi-platform-int']);
-    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(['us-east-1']);
-  });
-
-  test('renders without crashing and displays components correctly', async () => {
-    render(<ReportingGroup />);
-    await waitFor(() => {
-      expect(screen.getByText('Reporting Groups')).toBeDefined();
-      expect(screen.getByText('CronSchedule Component')).toBeDefined();
-    });
-  });
-
-  test('should initialize with correct initial state', () => {
-    const { container } = render(<ReportingGroup />);
-    const nameInput = container.querySelector('#name') as HTMLInputElement;
-    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
-    expect(nameInput.value).toBe('');  // Initial value empty
-    expect(descriptionInput.value).toBe('');  // Initial value empty
-  });
-
-  test('should update name field on input', async () => {
-    const { container } = render(<ReportingGroup />);
-    const nameInput = container.querySelector('#name') as HTMLInputElement;
-    await userEvent.type(nameInput, 'Test name');
-    expect(nameInput.value).toBe('Test name');
-  });
-
-  test('should update description field on input', async () => {
-    const { container } = render(<ReportingGroup />);
-    const descriptionInput = container.querySelector('#description') as HTMLInputElement;
-    await userEvent.type(descriptionInput, 'Test description');
-    expect(descriptionInput.value).toBe('Test description');
-  });
-
-  test('should trigger onBlurChange when email list input loses focus', async () => {
-    const onChangeMock = vi.fn();
-    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
-    
-    const emailListInput = container.querySelector('#description') as HTMLInputElement;
-    await userEvent.type(emailListInput, 'test@example.com');
-    emailListInput.blur();  // Trigger onBlurChange by losing focus
-    
-    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
-      description: 'test@example.com'
-    }));
-  });
-
-  test('should handle LoB dropdown selection change', async () => {
-    const { container } = render(<ReportingGroup />);
-    const lobDropdown = container.querySelector('#lob div[class*=-control]') as any;
-    await userEvent.click(lobDropdown);
-    const lobOption = container.querySelectorAll('div[class*=-option]') as any;
-    await userEvent.click(lobOption[0]);
-    expect(lobOption[0].innerHTML).toBe('vgi-platform-int');
-  });
-
-  test('should handle region dropdown selection change', async () => {
-    const { container } = render(<ReportingGroup />);
-    const regionDropdown = container.querySelector('#region div[class*=-control]') as any;
-    await userEvent.click(regionDropdown);
-    const regionOption = container.querySelectorAll('div[class*=-option]') as any;
-    await userEvent.click(regionOption[0]);
-    expect(regionOption[0].innerHTML).toBe('us-east-1');
-  });
-
-  test('should update and trigger onBlur when status radio button is changed to Active', async () => {
-    const onChangeMock = vi.fn();
-    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
-    
-    const activeRadio = container.querySelector('#active-status') as HTMLInputElement;
-    await userEvent.click(activeRadio);
-    activeRadio.blur();  // Trigger onBlurChange
-    
-    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
-      status: 'Active'
-    }));
-  });
-
-  test('should update and trigger onBlur when status radio button is changed to Inactive', async () => {
-    const onChangeMock = vi.fn();
-    const { container } = render(<ReportingGroup onChange={onChangeMock} />);
-    
-    const inactiveRadio = container.querySelector('#inactive-status') as HTMLInputElement;
-    await userEvent.click(inactiveRadio);
-    inactiveRadio.blur();  // Trigger onBlurChange
-    
-    expect(onChangeMock).toHaveBeenCalledWith('reporting-groups', expect.objectContaining({
-      status: 'Inactive'
-    }));
-  });
-
-  test('should render the CronSchedule component correctly', async () => {
-    render(<ReportingGroup />);
-    await waitFor(() => {
-      expect(screen.getByText('CronSchedule Component')).toBeDefined();
-    });
-  });
-
-  test('should handle empty LoB and region lists gracefully', async () => {
-    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue([]);
-    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue([]);
-    
-    render(<ReportingGroup />);
-    
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Select line of business')).toBeDefined();
-      expect(screen.getByPlaceholderText('Select region')).toBeDefined();
-    });
-  });
-
-  test('should handle error in MetadataService for LoB and regions', async () => {
-    // Mocking rejected values for both LoB and Region services
-    vi.spyOn(MetadataService, 'getLobs').mockResolvedValue(Promise.reject(new Error('Error fetching lobs')));
-    vi.spyOn(MetadataService, 'getRegions').mockResolvedValue(Promise.reject(new Error('Error fetching regions')));
-
-    render(<ReportingGroup />);
-
-    await waitFor(() => {
-      expect(screen.queryByText('Select line of business')).toBeNull();
-      expect(screen.queryByText('Select region')).toBeNull();
-    });
-  });
-
-  test('should update form values from props when provided', async () => {
-    const initialData = {
-      "reporting-groups": {
-        name: 'Initial name',
-        description: 'Initial description',
-        status: 'Active',
-        region: 'us-east-1',
-        lob: 'vgi-platform-int'
-      }
-    };
-    
-    render(<ReportingGroup data={initialData} />);
-    
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('Initial name')).toBeDefined();
-      expect(screen.getByDisplayValue('Initial description')).toBeDefined();
-      expect(screen.getByDisplayValue('Active')).toBeDefined();
-      expect(screen.getByDisplayValue('us-east-1')).toBeDefined();
-    });
-  });
-});
+FROM 
+    dq_results_master AS master
+LEFT JOIN 
+    dqc_results_rule_details AS rule 
+ON 
+    master.dq_result_id = rule.dq_result_id
+LEFT JOIN 
+    dq_results_observation_details AS obs 
+ON 
+    master.dq_result_id = obs.dq_result_id
+LEFT JOIN 
+    dq_results_analyzer_details AS analyzer 
+ON 
+    master.dq_result_id = analyzer.dq_result_id;
