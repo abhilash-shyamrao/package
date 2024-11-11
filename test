@@ -1,6 +1,6 @@
 CREATE VIEW v_dq_results AS
 SELECT 
-    -- From dq_results_master
+    -- From dqc_schema.dq_results_master
     master.dq_result_id,
     master.job_run_id,
     master.job_start_time,
@@ -15,7 +15,7 @@ SELECT
     master.error_message,
     master.score,
 
-    -- From dqc_results_rule_details
+    -- From dqc_schema.dqc_results_rule_details
     rule.result_item_id AS rule_result_item_id,
     rule.rule_name,
     rule.rule_definition,
@@ -26,7 +26,7 @@ SELECT
     rule.created_by AS rule_created_by,
     rule.created_on AS rule_created_on,
 
-    -- From dq_results_observation_details
+    -- From dqc_schema.dq_results_observation_details
     obs.observation_item_id,
     obs.observation_description,
     obs.observation_metric_name,
@@ -39,7 +39,7 @@ SELECT
     obs.created_by AS observation_created_by,
     obs.created_on AS observation_created_on,
 
-    -- From dq_results_analyzer_details
+    -- From dqc_schema.dq_results_analyzer_details
     analyzer.analyzer_result_item_id,
     analyzer.analyzer_name,
     analyzer.analyzer_definition,
@@ -48,16 +48,16 @@ SELECT
     analyzer.created_on AS analyzer_created_on
 
 FROM 
-    dq_results_master AS master
+    dqc_schema.dq_results_master AS master
 LEFT JOIN 
-    dqc_results_rule_details AS rule 
+    dqc_schema.dqc_results_rule_details AS rule 
 ON 
     master.dq_result_id = rule.dq_result_id
 LEFT JOIN 
-    dq_results_observation_details AS obs 
+    dqc_schema.dq_results_observation_details AS obs 
 ON 
     master.dq_result_id = obs.dq_result_id
 LEFT JOIN 
-    dq_results_analyzer_details AS analyzer 
+    dqc_schema.dq_results_analyzer_details AS analyzer 
 ON 
     master.dq_result_id = analyzer.dq_result_id;
