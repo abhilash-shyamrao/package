@@ -1,19 +1,28 @@
-INSERT INTO dq_results_master (
+INSERT INTO dqc_schema.dq_results_master (
     dq_result_id,
     job_run_id,
     job_start_time,
     job_end_time,
+    dq_config_id,
     dq_config_name,
     dq_rule_id_list,
     reporting_group_id_list,
     runtime_config,
     execution_region,
+    rule_results,
+    observation_results,
+    analyzer_results,
     error_category,
     error_message,
     score
 ) VALUES
-(1, 1001, '2024-11-01 08:00:00', '2024-11-01 09:00:00', 'ConfigA', 'Rule1,Rule2', 'Group1,Group2', 'ConfigData1', 'Region1', 'None', 'None', 95),
-(2, 1002, '2024-11-01 09:00:00', '2024-11-01 10:00:00', 'ConfigB', 'Rule3', 'Group3', 'ConfigData2', 'Region2', 'Critical', 'Timeout Error', 80),
-(3, 1003, '2024-11-01 10:00:00', '2024-11-01 11:00:00', 'ConfigC', 'Rule4,Rule5', 'Group4', 'ConfigData3', 'Region3', 'Major', 'Validation Error', 85),
-(4, 1004, '2024-11-01 11:00:00', '2024-11-01 12:00:00', 'ConfigD', 'Rule6', 'Group5', 'ConfigData4', 'Region4', 'Minor', 'Resource Limit Warning', 90),
-(5, 1005, '2024-11-01 12:00:00', '2024-11-01 13:00:00', 'ConfigE', 'Rule7', 'Group6', 'ConfigData5', 'Region5', 'None', 'None', 88);
+(1, 101, '2024-11-01 08:00:00', '2024-11-01 08:30:00', 1, 'ConfigA', 'Rule1,Rule2', 'Group1,Group2', 'ConfigData1', 'Region1', 'Pass,Fail', 'ObservationA,ObservationB', 'Analyzer1', 'Warning', 'Rule2 failed threshold check', 92),
+(2, 102, '2024-11-01 09:00:00', '2024-11-01 09:45:00', 2, 'ConfigB', 'Rule3,Rule4', 'Group3,Group4', 'ConfigData2', 'Region2', 'Fail', 'ObservationC,ObservationD', 'Analyzer2', 'Critical', 'Timeout on external system', 75),
+(3, 103, '2024-11-01 10:00:00', '2024-11-01 10:30:00', 3, 'ConfigC', 'Rule5,Rule6', 'Group5', 'ConfigData3', 'Region3', 'Pass,Pass', 'ObservationE,ObservationF', 'Analyzer3', 'Major', 'Validation error in metrics', 88),
+(4, 104, '2024-11-01 11:00:00', '2024-11-01 11:30:00', 4, 'ConfigD', 'Rule7', 'Group6', 'ConfigData4', 'Region4', 'Pass', 'ObservationG', 'Analyzer4', 'Warning', 'Rule evaluation on edge', 95),
+(5, 105, '2024-11-01 12:00:00', '2024-11-01 12:15:00', 5, 'ConfigE', 'Rule8', 'Group7', 'ConfigData5', 'Region5', 'Fail', 'ObservationH', 'Analyzer5', 'Minor', 'Performance threshold not met', 80),
+(6, 106, '2024-11-01 12:30:00', '2024-11-01 13:00:00', 6, 'ConfigF', 'Rule9,Rule10', 'Group8', 'ConfigData6', 'Region6', 'Fail,Pass', 'ObservationI,ObservationJ', 'Analyzer6', 'Warning', 'Inconsistent rule result states', 90),
+(7, 107, '2024-11-01 13:00:00', '2024-11-01 13:30:00', 7, 'ConfigG', 'Rule11', 'Group9', 'ConfigData7', 'Region7', 'Pass', 'ObservationK', 'Analyzer7', 'Critical', 'Job aborted due to resource limits', 60),
+(8, 108, '2024-11-01 14:00:00', '2024-11-01 14:30:00', 8, 'ConfigH', 'Rule12,Rule13', 'Group10', 'ConfigData8', 'Region8', 'Pass,Pass', 'ObservationL,ObservationM', 'Analyzer8', 'Warning', 'Potential anomaly detected', 99),
+(9, 109, '2024-11-01 15:00:00', '2024-11-01 15:45:00', 9, 'ConfigI', 'Rule14', 'Group11', 'ConfigData9', 'Region9', 'Fail', 'ObservationN', 'Analyzer9', 'Major', 'Data inconsistency across regions', 78),
+(10, 110, '2024-11-01 16:00:00', '2024-11-01 16:20:00', 10, 'ConfigJ', 'Rule15,Rule16', 'Group12', 'ConfigData10', 'Region10', 'Pass,Fail', 'ObservationO,ObservationP', 'Analyzer10', 'Warning', 'Rule failed with unexpected value', 85);
