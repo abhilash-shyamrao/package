@@ -1,63 +1,19 @@
-CREATE VIEW v_dq_results AS
-SELECT 
-    -- From dqc_schema.dq_results_master
-    master.dq_result_id,
-    master.job_run_id,
-    master.job_start_time,
-    master.job_end_time,
-    master.dq_config_id,
-    master.dq_config_name,
-    master.dq_rule_id_list,
-    master.reporting_group_id_list,
-    master.runtime_config,
-    master.execution_region,
-    master.error_category,
-    master.error_message,
-    master.score,
-
-    -- From dqc_schema.dqc_results_rule_details
-    rule.result_item_id AS rule_result_item_id,
-    rule.rule_name,
-    rule.rule_definition,
-    rule.rule_evaluation_message,
-    rule.result_status,
-    rule.evaluation_metrics,
-    rule.evaluated_rule,
-    rule.created_by AS rule_created_by,
-    rule.created_on AS rule_created_on,
-
-    -- From dqc_schema.dq_results_observation_details
-    obs.observation_item_id,
-    obs.observation_description,
-    obs.observation_metric_name,
-    obs.observation_statistic_id,
-    obs.observation_metric_expected_value,
-    obs.observation_metric_actual_value,
-    obs.observation_metric_lower_limit,
-    obs.observation_metric_upper_limit,
-    obs.observation_new_rules,
-    obs.created_by AS observation_created_by,
-    obs.created_on AS observation_created_on,
-
-    -- From dqc_schema.dq_results_analyzer_details
-    analyzer.analyzer_result_item_id,
-    analyzer.analyzer_name,
-    analyzer.analyzer_definition,
-    analyzer.analyzer_evaluated_metric,
-    analyzer.created_by AS analyzer_created_by,
-    analyzer.created_on AS analyzer_created_on
-
-FROM 
-    dqc_schema.dq_results_master AS master
-LEFT JOIN 
-    dqc_schema.dqc_results_rule_details AS rule 
-ON 
-    master.dq_result_id = rule.dq_result_id
-LEFT JOIN 
-    dqc_schema.dq_results_observation_details AS obs 
-ON 
-    master.dq_result_id = obs.dq_result_id
-LEFT JOIN 
-    dqc_schema.dq_results_analyzer_details AS analyzer 
-ON 
-    master.dq_result_id = analyzer.dq_result_id;
+INSERT INTO dq_results_master (
+    dq_result_id,
+    job_run_id,
+    job_start_time,
+    job_end_time,
+    dq_config_name,
+    dq_rule_id_list,
+    reporting_group_id_list,
+    runtime_config,
+    execution_region,
+    error_category,
+    error_message,
+    score
+) VALUES
+(1, 1001, '2024-11-01 08:00:00', '2024-11-01 09:00:00', 'ConfigA', 'Rule1,Rule2', 'Group1,Group2', 'ConfigData1', 'Region1', 'None', 'None', 95),
+(2, 1002, '2024-11-01 09:00:00', '2024-11-01 10:00:00', 'ConfigB', 'Rule3', 'Group3', 'ConfigData2', 'Region2', 'Critical', 'Timeout Error', 80),
+(3, 1003, '2024-11-01 10:00:00', '2024-11-01 11:00:00', 'ConfigC', 'Rule4,Rule5', 'Group4', 'ConfigData3', 'Region3', 'Major', 'Validation Error', 85),
+(4, 1004, '2024-11-01 11:00:00', '2024-11-01 12:00:00', 'ConfigD', 'Rule6', 'Group5', 'ConfigData4', 'Region4', 'Minor', 'Resource Limit Warning', 90),
+(5, 1005, '2024-11-01 12:00:00', '2024-11-01 13:00:00', 'ConfigE', 'Rule7', 'Group6', 'ConfigData5', 'Region5', 'None', 'None', 88);
