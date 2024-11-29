@@ -1,48 +1,58 @@
-CREATE VIEW dq_results_full_join_view AS
-SELECT
-    COALESCE(master.dq_result_id, analyzer.dq_result_id, observation.dq_result_id, rule.dq_result_id) AS dq_result_id,
-    master.job_run_id,
-    master.job_start_time,
-    master.job_end_time,
-    master.dq_config_name,
-    master.dq_rule_id_list,
-    master.reporting_group_id_list,
-    master.runtime_config,
-    master.execution_region,
-    master.error_category,
-    master.error_message,
-    master.score,
-    analyzer.analyzer_result_item_id,
-    analyzer.analyzer_name,
-    analyzer.analyzer_definition,
-    analyzer.analyzer_evaluated_metrics,
-    analyzer.created_by AS analyzer_created_by,
-    analyzer.created_on AS analyzer_created_on,
-    observation.observation_item_id,
-    observation.observation_description,
-    observation.observation_metric_name,
-    observation.observation_static_id,
-    observation.observation_metric_expected_value,
-    observation.observation_metric_actual_value,
-    observation.observation_metric_lower_limit,
-    observation.observation_metric_upper_limit,
-    observation.observation_new_rules,
-    observation.created_by AS observation_created_by,
-    observation.created_on AS observation_created_on,
-    rule.result_item_id,
-    rule.rule_name,
-    rule.rule_definition,
-    rule.rule_evaluation_message,
-    rule.result_status,
-    rule.evaluation_metrics,
-    rule.evaluated_rule,
-    rule.created_by AS rule_created_by,
-    rule.created_on AS rule_created_on
-FROM 
-    dq_results_master master
-FULL OUTER JOIN dq_results_analyzer_details analyzer
-    ON master.dq_result_id = analyzer.dq_result_id
-FULL OUTER JOIN dq_results_observation_details observation
-    ON master.dq_result_id = observation.dq_result_id
-FULL OUTER JOIN dq_results_rule_details rule
-    ON master.dq_result_id = rule.dq_result_id;
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+
+#define APPEND_INTERVAL 500
+#define APPEND_SIZE 10
+
+void mutate_input(unsigned char *input, size_t size, int iterations, unsigned int prng_seed) {
+    srand(prng_seed);
+    for (int iteration = 0; iteration < iterations; iteration++) {
+        // Mutate with 13% probability
+        for (size_t i = 0; i < size; i++) {
+            if (rand() % 100 < 13) {
+                input[i] = rand() % 256;
+            }
+        }
+        // Append random bytes every 500 iterations
+        if ((iteration + 1) % APPEND_INTERVAL == 0) {
+            for (int j = 0; j < APPEND_SIZE; j++) {
+                input[size++] = rand() % 256;
+            }
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: ./fuzzer <prng_seed> <num_iterations>\n");
+        return 1;
+    }
+
+    unsigned int prng_seed = atoi(argv[1]);
+    int num_iterations = atoi(argv[2]);
+
+    // Read seed file
+    FILE *seed_file = fopen("_seed_", "rb");
+    if (!seed_file) {
+        perror("Failed to open seed file");
+        return 1;
+    }
+    fseek(seed_file, 0, SEEK_END);
+    size_t seed_size = ftell(seed_file);
+    fseek(seed_file, 0, SEEK_SET);
+    unsigned char *seed_data = malloc(seed_size + APPEND_INTERVAL * APPEND_SIZE);
+    fread(seed_data, 1, seed_size, seed_file);
+    fclose(seed_file);
+
+    // Mutate seed
+    mutate_input(seed_data, seed_size, num_iterations, prng_seed);
+
+    // Write mutated input to stdout
+    fwrite(seed_data, 1, seed_size, stdout);
+
+    free(seed_data);
+    return 0;
+}
+
