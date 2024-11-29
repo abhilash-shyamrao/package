@@ -1,49 +1,30 @@
-#!/usr/bin/env python3
 import random
+from random import seed
+from random import randint
 import sys
-
+#change seed file with each program seed0, seed1, seed2 = prog_0, prog_1, prog_2
+File_object = open("seed0", "r")
+starter_seed = File_object.read()
 def fuzzer(starter_seed, prng_seed, iterations):
-    # Ensure deterministic behavior
-    random.seed(prng_seed)
-
-    # Convert the seed input into a mutable list of characters
-    mutated_seed = list(starter_seed)
-    iteration_counter = 0
-
-    for _ in range(iterations):
-        iteration_counter += 1
-
-        # Mutate each byte with a 13% probability
-        for i in range(len(mutated_seed)):
-            if random.randint(0, 100) <= 13:
-                mutated_seed[i] = chr(random.randint(0, 255))
-
-        # Append 10 random characters every 500 iterations
-        if iteration_counter == 500:
-            for _ in range(10):
-                mutated_seed.append(chr(random.randint(0, 255)))
-            iteration_counter = 0  # Reset counter
-
-    # Convert the mutated list back to a string
-    output = "".join(mutated_seed)
-    print(output)  # Output to stdout for piping
-
-if __name__ == "__main__":
-    # Ensure proper arguments
-    if len(sys.argv) != 3:
-        print("Usage: ./fuzzer <prng_seed> <iterations>", file=sys.stderr)
-        sys.exit(1)
-
-    prng_seed = int(sys.argv[1])
-    iterations = int(sys.argv[2])
-
-    # Read the seed file
-    try:
-        with open("_seed_", "r") as seed_file:
-            starter_seed = seed_file.read().strip()
-    except FileNotFoundError:
-        print("Error: Seed file '_seed_' not found.", file=sys.stderr)
-        sys.exit(1)
-
-    # Run the fuzzer
-    fuzzer(starter_seed, prng_seed, iterations)
+starter_seed += ""
+Startseed = list(starter_seed)
+iteration_counter = 0
+for i in range(0, iterations):
+seed(prng_seed)
+iteration_counter += 1
+if iteration_counter == 500:
+for j in range(0, 10):
+rand_int = randint(0,255)
+add_char = chr(rand_int)
+Startseed.append(add_char)
+iteration_counter = 0
+for i in range (0, len(Startseed)):
+prob = randint(0, 100)
+if prob <= 13:
+int = randint(0, 255)
+character = chr(int)
+Startseed[i] = character
+prng_seed += 1
+output = "".join(Startseed)
+print(output)
+fuzzer(starter_seed, 1, 5000)
