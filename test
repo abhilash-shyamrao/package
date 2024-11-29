@@ -1,58 +1,49 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
+#!/usr/bin/env python3
+import random
+import sys
 
-#define APPEND_INTERVAL 500
-#define APPEND_SIZE 10
+def fuzzer(starter_seed, prng_seed, iterations):
+    # Ensure deterministic behavior
+    random.seed(prng_seed)
 
-void mutate_input(unsigned char *input, size_t size, int iterations, unsigned int prng_seed) {
-    srand(prng_seed);
-    for (int iteration = 0; iteration < iterations; iteration++) {
-        // Mutate with 13% probability
-        for (size_t i = 0; i < size; i++) {
-            if (rand() % 100 < 13) {
-                input[i] = rand() % 256;
-            }
-        }
-        // Append random bytes every 500 iterations
-        if ((iteration + 1) % APPEND_INTERVAL == 0) {
-            for (int j = 0; j < APPEND_SIZE; j++) {
-                input[size++] = rand() % 256;
-            }
-        }
-    }
-}
+    # Convert the seed input into a mutable list of characters
+    mutated_seed = list(starter_seed)
+    iteration_counter = 0
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: ./fuzzer <prng_seed> <num_iterations>\n");
-        return 1;
-    }
+    for _ in range(iterations):
+        iteration_counter += 1
 
-    unsigned int prng_seed = atoi(argv[1]);
-    int num_iterations = atoi(argv[2]);
+        # Mutate each byte with a 13% probability
+        for i in range(len(mutated_seed)):
+            if random.randint(0, 100) <= 13:
+                mutated_seed[i] = chr(random.randint(0, 255))
 
-    // Read seed file
-    FILE *seed_file = fopen("_seed_", "rb");
-    if (!seed_file) {
-        perror("Failed to open seed file");
-        return 1;
-    }
-    fseek(seed_file, 0, SEEK_END);
-    size_t seed_size = ftell(seed_file);
-    fseek(seed_file, 0, SEEK_SET);
-    unsigned char *seed_data = malloc(seed_size + APPEND_INTERVAL * APPEND_SIZE);
-    fread(seed_data, 1, seed_size, seed_file);
-    fclose(seed_file);
+        # Append 10 random characters every 500 iterations
+        if iteration_counter == 500:
+            for _ in range(10):
+                mutated_seed.append(chr(random.randint(0, 255)))
+            iteration_counter = 0  # Reset counter
 
-    // Mutate seed
-    mutate_input(seed_data, seed_size, num_iterations, prng_seed);
+    # Convert the mutated list back to a string
+    output = "".join(mutated_seed)
+    print(output)  # Output to stdout for piping
 
-    // Write mutated input to stdout
-    fwrite(seed_data, 1, seed_size, stdout);
+if __name__ == "__main__":
+    # Ensure proper arguments
+    if len(sys.argv) != 3:
+        print("Usage: ./fuzzer <prng_seed> <iterations>", file=sys.stderr)
+        sys.exit(1)
 
-    free(seed_data);
-    return 0;
-}
+    prng_seed = int(sys.argv[1])
+    iterations = int(sys.argv[2])
 
+    # Read the seed file
+    try:
+        with open("_seed_", "r") as seed_file:
+            starter_seed = seed_file.read().strip()
+    except FileNotFoundError:
+        print("Error: Seed file '_seed_' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Run the fuzzer
+    fuzzer(starter_seed, prng_seed, iterations)
