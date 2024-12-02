@@ -1,104 +1,156 @@
-import sys
-import os
-import random
-import subprocess
-from datetime import datetime
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <errno.h>
 
+#define SEED_FILE "_seed_.txt"
+#define CRASH_FILE_PREFIX "prog.crash_"
+#define MUTATION_CHANCE 0.13
+#define EXTEND_INTERVAL 500
+#define EXTEND_BYTES 10
 
-def load_seed(seed_file="_seed_.txt"):
-    """
-    Load the initial seed file from the current working directory.
-    """
-    if not os.path.exists(seed_file):
-        raise FileNotFoundError(f"Seed file '{seed_file}' not found.")
-    with open(seed_file, "rb") as f:
-        return f.read()
+void load_seed(const char *filename, unsigned char **data, size_t *size) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        perror("Error opening seed file");
+        exit(EXIT_FAILURE);
+    }
 
+    fseek(file, 0, SEEK_END);
+    *size = ftell(file);
+    rewind(file);
 
-def mutate(data, prng_seed, num_iterations):
-    """
-    Mutate the input data deterministically based on PRNG seed and iterations.
-    """
-    random.seed(prng_seed)  # Seed the PRNG
-    data = bytearray(data)  # Convert to mutable bytearray
+    *data = (unsigned char *)malloc(*size);
+    if (!*data) {
+        perror("Error allocating memory for seed data");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
 
-    for i in range(num_iterations):
-        # Mutate each byte with a 13% probability
-        for j in range(len(data)):
-            if random.random() < 0.13:  # 13% chance
-                data[j] = random.randint(0, 255)  # Replace byte with a random value
+    fread(*data, 1, *size, file);
+    fclose(file);
+}
 
-        # Extend input every 500 iterations
-        if (i + 1) % 500 == 0:
-            for _ in range(10):
-                data.append(random.randint(0, 255))  # Add 10 random bytes
+void mutate(unsigned char **data, size_t *size, unsigned int seed, int iterations) {
+    srand(seed);
 
-    return bytes(data)
+    for (int i = 0; i < iterations; i++) {
+        for (size_t j = 0; j < *size; j++) {
+            if ((double)rand() / RAND_MAX < MUTATION_CHANCE) {
+                (*data)[j] = (unsigned char)(rand() % 256);
+            }
+        }
 
+        if ((i + 1) % EXTEND_INTERVAL == 0) {
+            *data = (unsigned char *)realloc(*data, *size + EXTEND_BYTES);
+            if (!*data) {
+                perror("Error reallocating memory for mutation");
+                exit(EXIT_FAILURE);
+            }
+            for (int k = 0; k < EXTEND_BYTES; k++) {
+                (*data)[*size + k] = (unsigned char)(rand() % 256);
+            }
+            *size += EXTEND_BYTES;
+        }
+    }
+}
 
-def execute_program(input_data):
-    """
-    Execute the target program 'prog' with the given input data and monitor for crashes.
-    """
-    try:
-        # Launch the program with the input data
-        process = subprocess.run(
-            ["./prog"],
-            input=input_data,
-            capture_output=True,
-            text=False,
-            timeout=5,  # Set a timeout to prevent hanging
-        )
+int execute_program(unsigned char *data, size_t size) {
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        perror("Error creating pipe");
+        exit(EXIT_FAILURE);
+    }
 
-        # Return the exit code
-        return process.returncode
-    except subprocess.TimeoutExpired:
-        print("Error: Program execution timed out.", file=sys.stderr)
-        return None
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("Error forking process");
+        exit(EXIT_FAILURE);
+    }
 
+    if (pid == 0) {
+        // Child process: execute the program
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
 
-def main():
-    # Ensure proper arguments
-    if len(sys.argv) != 3:
-        print("Usage: ./fuzzer <prng_seed> <num_iterations>", file=sys.stderr)
-        sys.exit(1)
+        execl("./prog", "./prog", NULL);
+        perror("Error executing program");
+        exit(EXIT_FAILURE);
+    } else {
+        // Parent process: send input data
+        close(pipefd[0]);
+        write(pipefd[1], data, size);
+        close(pipefd[1]);
 
-    try:
-        prng_seed = int(sys.argv[1])
-        num_iterations = int(sys.argv[2])
-    except ValueError:
-        print("Error: Invalid arguments. Ensure PRNG seed and iterations are integers.", file=sys.stderr)
-        sys.exit(1)
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV) {
+            return 139; // Segmentation fault
+        }
+        return WEXITSTATUS(status);
+    }
+}
 
-    # Check if the target program exists
-    if not os.path.exists("./prog"):
-        print("Error: Target program './prog' not found.", file=sys.stderr)
-        sys.exit(1)
+void save_crash_data(unsigned char *data, size_t size) {
+    char filename[256];
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(filename, sizeof(filename), CRASH_FILE_PREFIX "%Y-%m-%d_%H-%M-%S", t);
 
-    # Load the seed file
-    try:
-        seed_data = load_seed()
-    except FileNotFoundError as e:
-        print(e, file=sys.stderr)
-        sys.exit(1)
+    FILE *file = fopen(filename, "wb");
+    if (!file) {
+        perror("Error saving crash data");
+        exit(EXIT_FAILURE);
+    }
 
-    # Perform mutations and test the program
-    for i in range(num_iterations):
-        mutated_data = mutate(seed_data, prng_seed, i + 1)
-        exit_code = execute_program(mutated_data)
+    fwrite(data, 1, size, file);
+    fclose(file);
 
-        # Check for segmentation fault (exit code 139)
-        if exit_code == 139:
-            print(f"Crash detected on iteration {i + 1}. Saving input...")
-            crash_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            crash_file = f"prog.crash_{crash_time}"
+    printf("Crash input saved to %s\n", filename);
+}
 
-            with open(crash_file, "wb") as f:
-                f.write(mutated_data)
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <prng_seed> <num_iterations>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
 
-            print(f"Crash input saved to {crash_file}.")
-            break
+    unsigned int prng_seed = atoi(argv[1]);
+    int num_iterations = atoi(argv[2]);
 
+    if (access("./prog", X_OK) != 0) {
+        fprintf(stderr, "Error: Target program './prog' not found or not executable\n");
+        return EXIT_FAILURE;
+    }
 
-if __name__ == "__main__":
-    main()
+    unsigned char *seed_data;
+    size_t seed_size;
+
+    load_seed(SEED_FILE, &seed_data, &seed_size);
+
+    for (int i = 0; i < num_iterations; i++) {
+        unsigned char *mutated_data = (unsigned char *)malloc(seed_size);
+        memcpy(mutated_data, seed_data, seed_size);
+        size_t mutated_size = seed_size;
+
+        mutate(&mutated_data, &mutated_size, prng_seed, i + 1);
+        int exit_code = execute_program(mutated_data, mutated_size);
+
+        if (exit_code == 139) {
+            printf("Crash detected on iteration %d\n", i + 1);
+            save_crash_data(mutated_data, mutated_size);
+            free(mutated_data);
+            break;
+        }
+
+        free(mutated_data);
+    }
+
+    free(seed_data);
+    return EXIT_SUCCESS;
+}
