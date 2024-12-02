@@ -1,30 +1,104 @@
-import random
-from random import seed
-from random import randint
 import sys
-#change seed file with each program seed0, seed1, seed2 = prog_0, prog_1, prog_2
-File_object = open("seed0", "r")
-starter_seed = File_object.read()
-def fuzzer(starter_seed, prng_seed, iterations):
-starter_seed += ""
-Startseed = list(starter_seed)
-iteration_counter = 0
-for i in range(0, iterations):
-seed(prng_seed)
-iteration_counter += 1
-if iteration_counter == 500:
-for j in range(0, 10):
-rand_int = randint(0,255)
-add_char = chr(rand_int)
-Startseed.append(add_char)
-iteration_counter = 0
-for i in range (0, len(Startseed)):
-prob = randint(0, 100)
-if prob <= 13:
-int = randint(0, 255)
-character = chr(int)
-Startseed[i] = character
-prng_seed += 1
-output = "".join(Startseed)
-print(output)
-fuzzer(starter_seed, 1, 5000)
+import os
+import random
+import subprocess
+from datetime import datetime
+
+
+def load_seed(seed_file="_seed_.txt"):
+    """
+    Load the initial seed file from the current working directory.
+    """
+    if not os.path.exists(seed_file):
+        raise FileNotFoundError(f"Seed file '{seed_file}' not found.")
+    with open(seed_file, "rb") as f:
+        return f.read()
+
+
+def mutate(data, prng_seed, num_iterations):
+    """
+    Mutate the input data deterministically based on PRNG seed and iterations.
+    """
+    random.seed(prng_seed)  # Seed the PRNG
+    data = bytearray(data)  # Convert to mutable bytearray
+
+    for i in range(num_iterations):
+        # Mutate each byte with a 13% probability
+        for j in range(len(data)):
+            if random.random() < 0.13:  # 13% chance
+                data[j] = random.randint(0, 255)  # Replace byte with a random value
+
+        # Extend input every 500 iterations
+        if (i + 1) % 500 == 0:
+            for _ in range(10):
+                data.append(random.randint(0, 255))  # Add 10 random bytes
+
+    return bytes(data)
+
+
+def execute_program(input_data):
+    """
+    Execute the target program 'prog' with the given input data and monitor for crashes.
+    """
+    try:
+        # Launch the program with the input data
+        process = subprocess.run(
+            ["./prog"],
+            input=input_data,
+            capture_output=True,
+            text=False,
+            timeout=5,  # Set a timeout to prevent hanging
+        )
+
+        # Return the exit code
+        return process.returncode
+    except subprocess.TimeoutExpired:
+        print("Error: Program execution timed out.", file=sys.stderr)
+        return None
+
+
+def main():
+    # Ensure proper arguments
+    if len(sys.argv) != 3:
+        print("Usage: ./fuzzer <prng_seed> <num_iterations>", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        prng_seed = int(sys.argv[1])
+        num_iterations = int(sys.argv[2])
+    except ValueError:
+        print("Error: Invalid arguments. Ensure PRNG seed and iterations are integers.", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if the target program exists
+    if not os.path.exists("./prog"):
+        print("Error: Target program './prog' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    # Load the seed file
+    try:
+        seed_data = load_seed()
+    except FileNotFoundError as e:
+        print(e, file=sys.stderr)
+        sys.exit(1)
+
+    # Perform mutations and test the program
+    for i in range(num_iterations):
+        mutated_data = mutate(seed_data, prng_seed, i + 1)
+        exit_code = execute_program(mutated_data)
+
+        # Check for segmentation fault (exit code 139)
+        if exit_code == 139:
+            print(f"Crash detected on iteration {i + 1}. Saving input...")
+            crash_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            crash_file = f"prog.crash_{crash_time}"
+
+            with open(crash_file, "wb") as f:
+                f.write(mutated_data)
+
+            print(f"Crash input saved to {crash_file}.")
+            break
+
+
+if __name__ == "__main__":
+    main()
