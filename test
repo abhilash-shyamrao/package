@@ -24,6 +24,12 @@ void load_seed(const char *filename, unsigned char **data, size_t *size) {
     *size = ftell(file);
     rewind(file);
 
+    if (*size == 0) {
+        fprintf(stderr, "Error: Seed file '%s' is empty. Please provide valid seed data.\n", filename);
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
     *data = (unsigned char *)malloc(*size);
     if (!*data) {
         perror("Error allocating memory for seed data");
