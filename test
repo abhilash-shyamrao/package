@@ -17,18 +17,21 @@ void load_seed(const char *filename, unsigned char **data, size_t *size) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Error opening seed file");
+        fprintf(stderr, "Expected file: %s in the current directory.\n", filename);
         exit(EXIT_FAILURE);
     }
 
     fseek(file, 0, SEEK_END);
-    *size = ftell(file);
+    *size = ftell(file);  // Get the file size
     rewind(file);
 
     if (*size == 0) {
-        fprintf(stderr, "Error: Seed file '%s' is empty. Please provide valid seed data.\n", filename);
+        fprintf(stderr, "Error: Seed file '%s' is empty. File size: %zu bytes.\n", filename, *size);
         fclose(file);
         exit(EXIT_FAILURE);
     }
+
+    printf("Debug: Seed file '%s' loaded successfully. Size: %zu bytes.\n", filename, *size);
 
     *data = (unsigned char *)malloc(*size);
     if (!*data) {
