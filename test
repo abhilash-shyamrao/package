@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
-#include <errno.h>
+#include <sys/wait.h>
 
 #define SEED_FILE "_seed_.txt"
 #define CRASH_FILE_PREFIX "prog.crash_"
@@ -13,16 +11,61 @@
 #define EXTEND_INTERVAL 500
 #define EXTEND_BYTES 10
 
+void load_seed(const char *filename, unsigned char **data, size_t *size);
+void mutate(unsigned char **data, size_t *size, unsigned int seed, unsigned int iterations);
+int execute_program(unsigned char *data, size_t size);
+void save_crash_data(unsigned char *data, size_t size);
+
+int main(int argc, char **argv) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <prng_seed> <num_iterations>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    unsigned int prng_seed = atoi(argv[1]);
+    unsigned int num_iterations = atoi(argv[2]);
+
+    if (access("./prog", X_OK) != 0) {
+        fprintf(stderr, "Error: Target program './prog' not found or not executable\n");
+        return EXIT_FAILURE;
+    }
+
+    unsigned char *seed_data;
+    size_t seed_size;
+
+    load_seed(SEED_FILE, &seed_data, &seed_size);
+
+    for (unsigned int i = 0; i < num_iterations; i++) {
+        unsigned char *mutated_data = (unsigned char *)malloc(seed_size);
+        memcpy(mutated_data, seed_data, seed_size);
+        size_t mutated_size = seed_size;
+
+        mutate(&mutated_data, &mutated_size, prng_seed, i + 1);
+        int exit_code = execute_program(mutated_data, mutated_size);
+
+        if (exit_code == 139) {
+            printf("Crash detected on iteration %u\n", i + 1);
+            save_crash_data(mutated_data, mutated_size);
+            free(mutated_data);
+            break;
+        }
+
+        free(mutated_data);
+    }
+
+    free(seed_data);
+    return EXIT_SUCCESS;
+}
+
 void load_seed(const char *filename, unsigned char **data, size_t *size) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Error opening seed file");
-        fprintf(stderr, "Expected file: %s in the current directory.\n", filename);
         exit(EXIT_FAILURE);
     }
 
     fseek(file, 0, SEEK_END);
-    *size = ftell(file);  // Get the file size
+    *size = ftell(file);
     rewind(file);
 
     if (*size == 0) {
@@ -30,8 +73,6 @@ void load_seed(const char *filename, unsigned char **data, size_t *size) {
         fclose(file);
         exit(EXIT_FAILURE);
     }
-
-    printf("Debug: Seed file '%s' loaded successfully. Size: %zu bytes.\n", filename, *size);
 
     *data = (unsigned char *)malloc(*size);
     if (!*data) {
@@ -44,10 +85,10 @@ void load_seed(const char *filename, unsigned char **data, size_t *size) {
     fclose(file);
 }
 
-void mutate(unsigned char **data, size_t *size, unsigned int seed, int iterations) {
+void mutate(unsigned char **data, size_t *size, unsigned int seed, unsigned int iterations) {
     srand(seed);
 
-    for (int i = 0; i < iterations; i++) {
+    for (unsigned int i = 0; i < iterations; i++) {
         for (size_t j = 0; j < *size; j++) {
             if ((double)rand() / RAND_MAX < MUTATION_CHANCE) {
                 (*data)[j] = (unsigned char)(rand() % 256);
@@ -121,45 +162,4 @@ void save_crash_data(unsigned char *data, size_t size) {
     fclose(file);
 
     printf("Crash input saved to %s\n", filename);
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <prng_seed> <num_iterations>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    unsigned int prng_seed = atoi(argv[1]);
-    int num_iterations = atoi(argv[2]);
-
-    if (access("./prog", X_OK) != 0) {
-        fprintf(stderr, "Error: Target program './prog' not found or not executable\n");
-        return EXIT_FAILURE;
-    }
-
-    unsigned char *seed_data;
-    size_t seed_size;
-
-    load_seed(SEED_FILE, &seed_data, &seed_size);
-
-    for (int i = 0; i < num_iterations; i++) {
-        unsigned char *mutated_data = (unsigned char *)malloc(seed_size);
-        memcpy(mutated_data, seed_data, seed_size);
-        size_t mutated_size = seed_size;
-
-        mutate(&mutated_data, &mutated_size, prng_seed, i + 1);
-        int exit_code = execute_program(mutated_data, mutated_size);
-
-        if (exit_code == 139) {
-            printf("Crash detected on iteration %d\n", i + 1);
-            save_crash_data(mutated_data, mutated_size);
-            free(mutated_data);
-            break;
-        }
-
-        free(mutated_data);
-    }
-
-    free(seed_data);
-    return EXIT_SUCCESS;
 }
