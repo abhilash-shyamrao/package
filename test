@@ -1,165 +1,330 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/wait.h>
 
-#define SEED_FILE "_seed_.txt"
-#define CRASH_FILE_PREFIX "prog.crash_"
-#define MUTATION_CHANCE 0.13
-#define EXTEND_INTERVAL 500
-#define EXTEND_BYTES 10
 
-void load_seed(const char *filename, unsigned char **data, size_t *size);
-void mutate(unsigned char **data, size_t *size, unsigned int seed, unsigned int iterations);
-int execute_program(unsigned char *data, size_t size);
-void save_crash_data(unsigned char *data, size_t size);
+Create an audit log table that tracks changes to all unique configuration columns in the tables
 
-int main(int argc, char **argv) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <prng_seed> <num_iterations>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+CREATE TABLE audit_log (
+    audit_id SERIAL PRIMARY KEY,
+    transaction_id UUID NOT NULL,
+    table_name VARCHAR(255) NOT NULL,
+    row_identifier JSONB NOT NULL,
+    column_name VARCHAR(255),
+    old_value TEXT,
+    new_value TEXT,
+    changed_on TIMESTAMP NOT NULL DEFAULT NOW(),
+    changed_by VARCHAR(255)
+);
 
-    unsigned int prng_seed = atoi(argv[1]);
-    unsigned int num_iterations = atoi(argv[2]);
 
-    if (access("./prog", X_OK) != 0) {
-        fprintf(stderr, "Error: Target program './prog' not found or not executable\n");
-        return EXIT_FAILURE;
-    }
+audit_id
+A unique identifier for each entry in the log, allowing for easy reference and querying of specific changes.
+transaction_id
+Groups related changes that occurred within the same transaction, enabling comprehensive tracking of multi-step operations.
+table_name
+Identifies the table in the database where the change occurred, helping to locate the source of the modification.
+row_identifier
+Stores the unique identifier of the affected row (e.g., primary key), ensuring precise identification of the data that was changed.
+column_name
+Specifies the exact column that was modified, or is left blank for operations like row-level INSERT or DELETE.
+old_value
+Captures the value of the column before the change, aiding in understanding what was modified or for potential data recovery.
+new_value
+Captures the value of the column after the change, providing a clear view of the result of the modification.
+changed_on
+Records the timestamp of when the change occurred, enabling chronological tracking of modifications.
+changed_by
+Logs the user or process responsible for the change, offering accountability and auditability.
 
-    unsigned char *seed_data;
-    size_t seed_size;
 
-    load_seed(SEED_FILE, &seed_data, &seed_size);
+Create a view that combines all the tables using a UNION ALL. This view will have columns common across the tables to identify the source table.
 
-    for (unsigned int i = 0; i < num_iterations; i++) {
-        unsigned char *mutated_data = (unsigned char *)malloc(seed_size);
-        memcpy(mutated_data, seed_data, seed_size);
-        size_t mutated_size = seed_size;
+CREATE VIEW unified_view AS
+SELECT
+    'dq_access_group' AS source_table,
+    access_id AS primary_key,
+    row_to_json(dq_access_group.*) AS data
+FROM dq_access_group
+UNION ALL
+SELECT
+    'dq_accounts' AS source_table,
+    account_id AS primary_key,
+    row_to_json(dq_accounts.*) AS data
+FROM dq_accounts
+UNION ALL
+SELECT
+    'dq_analyzers' AS source_table,
+    dq_analyzer_id AS primary_key,
+    row_to_json(dq_analyzers.*) AS data
+FROM dq_analyzers
+UNION ALL
+SELECT
+    'dq_analyzers_library' AS source_table,
+    analyzer_id AS primary_key,
+    row_to_json(dq_analyzers_library.*) AS data
+FROM dq_analyzers_library
+UNION ALL
+SELECT
+    'dq_config' AS source_table,
+    dq_config_id AS primary_key,
+    row_to_json(dq_config.*) AS data
+FROM dq_config
+UNION ALL
+SELECT
+    'dq_config_access_relation' AS source_table,
+    dq_config_id AS primary_key,
+    row_to_json(dq_config_access_relation.*) AS data
+FROM dq_config_access_relation
+UNION ALL
+SELECT
+    'dq_config_dataset_filter' AS source_table,
+    dq_config_id AS primary_key,
+    row_to_json(dq_config_dataset_filter.*) AS data
+FROM dq_config_dataset_filter
+UNION ALL
+SELECT
+    'dq_config_integration' AS source_table,
+    dq_integration_id AS primary_key,
+    row_to_json(dq_config_integration.*) AS data
+FROM dq_config_integration
+UNION ALL
+SELECT
+    'dq_config_target_relation' AS source_table,
+    dq_config_id AS primary_key,
+    row_to_json(dq_config_target_relation.*) AS data
+FROM dq_config_target_relation
+UNION ALL
+SELECT
+    'dq_dataset' AS source_table,
+    dataset_id AS primary_key,
+    row_to_json(dq_dataset.*) AS data
+FROM dq_dataset
+UNION ALL
+SELECT
+    'dq_reporting_group' AS source_table,
+    reporting_group_id AS primary_key,
+    row_to_json(dq_reporting_group.*) AS data
+FROM dq_reporting_group
+UNION ALL
+SELECT
+    'dq_reporting_group_access_relation' AS source_table,
+    reporting_group_id AS primary_key,
+    row_to_json(dq_reporting_group_access_relation.*) AS data
+FROM dq_reporting_group_access_relation
+UNION ALL
+SELECT
+    'dq_reporting_group_config_relation' AS source_table,
+    reporting_group_id AS primary_key,
+    row_to_json(dq_reporting_group_config_relation.*) AS data
+FROM dq_reporting_group_config_relation
+UNION ALL
+SELECT
+    'dq_results_analyzer_details' AS source_table,
+    job_run_id AS primary_key,
+    row_to_json(dq_results_analyzer_details.*) AS data
+FROM dq_results_analyzer_details
+UNION ALL
+SELECT
+    'dq_results_master' AS source_table,
+    job_run_id AS primary_key,
+    row_to_json(dq_results_master.*) AS data
+FROM dq_results_master
+UNION ALL
+SELECT
+    'dq_results_observation_details' AS source_table,
+    job_run_id AS primary_key,
+    row_to_json(dq_results_observation_details.*) AS data
+FROM dq_results_observation_details
+UNION ALL
+SELECT
+    'dq_results_rule_details' AS source_table,
+    job_run_id AS primary_key,
+    row_to_json(dq_results_rule_details.*) AS data
+FROM dq_results_rule_details
+UNION ALL
+SELECT
+    'dq_rule_library' AS source_table,
+    rule_id AS primary_key,
+    row_to_json(dq_rule_library.*) AS data
+FROM dq_rule_library
+UNION ALL
+SELECT
+    'dq_ruleset' AS source_table,
+    dq_rule_id AS primary_key,
+    row_to_json(dq_ruleset.*) AS data
+FROM dq_ruleset;
 
-        mutate(&mutated_data, &mutated_size, prng_seed, i + 1);
-        int exit_code = execute_program(mutated_data, mutated_size);
 
-        if (exit_code == 139) {
-            printf("Crash detected on iteration %u\n", i + 1);
-            save_crash_data(mutated_data, mutated_size);
-            free(mutated_data);
-            break;
-        }
 
-        free(mutated_data);
-    }
+Create a trigger function on the view. The trigger function will detect changes (inserts, updates, deletes) to the unified_view and insert a record into the audit_log table.
 
-    free(seed_data);
-    return EXIT_SUCCESS;
-}
+CREATE OR REPLACE FUNCTION log_unified_view_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+    transaction_id UUID := gen_random_uuid(); -- Unique transaction ID
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        SELECT
+            transaction_id,
+            TG_TABLE_NAME,
+            row_to_json(OLD.*),
+            column_name,
+            OLD.data->>column_name,
+            NEW.data->>column_name,
+            NOW(),
+            CURRENT_USER
+        FROM jsonb_object_keys(OLD.data::jsonb) column_name
+        WHERE OLD.data->>column_name IS DISTINCT FROM NEW.data->>column_name;
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        VALUES (
+            transaction_id,
+            TG_TABLE_NAME,
+            row_to_json(OLD.*),
+            NULL,
+            NULL,
+            NULL,
+            NOW(),
+            CURRENT_USER
+        );
+    ELSIF TG_OP = 'INSERT' THEN
+        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        VALUES (
+            transaction_id,
+            TG_TABLE_NAME,
+            row_to_json(NEW.*),
+            NULL,
+            NULL,
+            NULL,
+            NOW(),
+            CURRENT_USER
+        );
+    END IF;
 
-void load_seed(const char *filename, unsigned char **data, size_t *size) {
-    FILE *file = fopen(filename, "rb");
-    if (!file) {
-        perror("Error opening seed file");
-        exit(EXIT_FAILURE);
-    }
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
-    fseek(file, 0, SEEK_END);
-    *size = ftell(file);
-    rewind(file);
 
-    if (*size == 0) {
-        fprintf(stderr, "Error: Seed file '%s' is empty. File size: %zu bytes.\n", filename, *size);
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
 
-    *data = (unsigned char *)malloc(*size);
-    if (!*data) {
-        perror("Error allocating memory for seed data");
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
 
-    fread(*data, 1, *size, file);
-    fclose(file);
-}
+create triggers for all the tables, attaching them to the log_unified_view_changes function.
+Each trigger is attached to a specific table (AFTER INSERT OR UPDATE OR DELETE) to capture any data changes.
+The log_unified_view_changes() function is called for every row affected, logging changes into the audit_log table.
+This script ensures all tables are monitored for data modifications.
 
-void mutate(unsigned char **data, size_t *size, unsigned int seed, unsigned int iterations) {
-    srand(seed);
+-- dq_access_group
+CREATE TRIGGER trigger_dq_access_group
+AFTER INSERT OR UPDATE OR DELETE ON dq_access_group
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    for (unsigned int i = 0; i < iterations; i++) {
-        for (size_t j = 0; j < *size; j++) {
-            if ((double)rand() / RAND_MAX < MUTATION_CHANCE) {
-                (*data)[j] = (unsigned char)(rand() % 256);
-            }
-        }
+-- dq_accounts
+CREATE TRIGGER trigger_dq_accounts
+AFTER INSERT OR UPDATE OR DELETE ON dq_accounts
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-        if ((i + 1) % EXTEND_INTERVAL == 0) {
-            *data = (unsigned char *)realloc(*data, *size + EXTEND_BYTES);
-            if (!*data) {
-                perror("Error reallocating memory for mutation");
-                exit(EXIT_FAILURE);
-            }
-            for (int k = 0; k < EXTEND_BYTES; k++) {
-                (*data)[*size + k] = (unsigned char)(rand() % 256);
-            }
-            *size += EXTEND_BYTES;
-        }
-    }
-}
+-- dq_analyzers
+CREATE TRIGGER trigger_dq_analyzers
+AFTER INSERT OR UPDATE OR DELETE ON dq_analyzers
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-int execute_program(unsigned char *data, size_t size) {
-    int pipefd[2];
-    if (pipe(pipefd) == -1) {
-        perror("Error creating pipe");
-        exit(EXIT_FAILURE);
-    }
+-- dq_analyzers_library
+CREATE TRIGGER trigger_dq_analyzers_library
+AFTER INSERT OR UPDATE OR DELETE ON dq_analyzers_library
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("Error forking process");
-        exit(EXIT_FAILURE);
-    }
+-- dq_config
+CREATE TRIGGER trigger_dq_config
+AFTER INSERT OR UPDATE OR DELETE ON dq_config
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    if (pid == 0) {
-        // Child process: execute the program
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
+-- dq_config_access_relation
+CREATE TRIGGER trigger_dq_config_access_relation
+AFTER INSERT OR UPDATE OR DELETE ON dq_config_access_relation
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-        execl("./prog", "./prog", NULL);
-        perror("Error executing program");
-        exit(EXIT_FAILURE);
-    } else {
-        // Parent process: send input data
-        close(pipefd[0]);
-        write(pipefd[1], data, size);
-        close(pipefd[1]);
+-- dq_config_dataset_filter
+CREATE TRIGGER trigger_dq_config_dataset_filter
+AFTER INSERT OR UPDATE OR DELETE ON dq_config_dataset_filter
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-        int status;
-        waitpid(pid, &status, 0);
-        if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV) {
-            return 139; // Segmentation fault
-        }
-        return WEXITSTATUS(status);
-    }
-}
+-- dq_config_integration
+CREATE TRIGGER trigger_dq_config_integration
+AFTER INSERT OR UPDATE OR DELETE ON dq_config_integration
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-void save_crash_data(unsigned char *data, size_t size) {
-    char filename[256];
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    strftime(filename, sizeof(filename), CRASH_FILE_PREFIX "%Y-%m-%d_%H-%M-%S", t);
+-- dq_config_target_relation
+CREATE TRIGGER trigger_dq_config_target_relation
+AFTER INSERT OR UPDATE OR DELETE ON dq_config_target_relation
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    FILE *file = fopen(filename, "wb");
-    if (!file) {
-        perror("Error saving crash data");
-        exit(EXIT_FAILURE);
-    }
+-- dq_dataset
+CREATE TRIGGER trigger_dq_dataset
+AFTER INSERT OR UPDATE OR DELETE ON dq_dataset
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    fwrite(data, 1, size, file);
-    fclose(file);
+-- dq_reporting_group
+CREATE TRIGGER trigger_dq_reporting_group
+AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
 
-    printf("Crash input saved to %s\n", filename);
-}
+-- dq_reporting_group_access_relation
+CREATE TRIGGER trigger_dq_reporting_group_access_relation
+AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group_access_relation
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_reporting_group_config_relation
+CREATE TRIGGER trigger_dq_reporting_group_config_relation
+AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group_config_relation
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_results_analyzer_details
+CREATE TRIGGER trigger_dq_results_analyzer_details
+AFTER INSERT OR UPDATE OR DELETE ON dq_results_analyzer_details
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_results_master
+CREATE TRIGGER trigger_dq_results_master
+AFTER INSERT OR UPDATE OR DELETE ON dq_results_master
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_results_observation_details
+CREATE TRIGGER trigger_dq_results_observation_details
+AFTER INSERT OR UPDATE OR DELETE ON dq_results_observation_details
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_results_rule_details
+CREATE TRIGGER trigger_dq_results_rule_details
+AFTER INSERT OR UPDATE OR DELETE ON dq_results_rule_details
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_rule_library
+CREATE TRIGGER trigger_dq_rule_library
+AFTER INSERT OR UPDATE OR DELETE ON dq_rule_library
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+-- dq_ruleset
+CREATE TRIGGER trigger_dq_ruleset
+AFTER INSERT OR UPDATE OR DELETE ON dq_ruleset
+FOR EACH ROW
+EXECUTE FUNCTION log_unified_view_changes();
+
+
+
