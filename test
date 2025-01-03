@@ -6,13 +6,14 @@ CREATE TABLE audit_log (
     audit_id SERIAL PRIMARY KEY,
     transaction_id UUID NOT NULL,
     table_name VARCHAR(255) NOT NULL,
-    row_identifier JSONB NOT NULL,
-    column_name VARCHAR(255),
-    old_value TEXT,
-    new_value TEXT,
-    changed_on TIMESTAMP NOT NULL DEFAULT NOW(),
-    changed_by VARCHAR(255)
+    row_identifier JSONB NOT NULL, -- Identifier of the affected row (e.g., primary key)
+    column_name VARCHAR(255), -- The specific column that changed
+    old_value JSONB, -- Old value in JSONB format
+    new_value JSONB, -- New value in JSONB format
+    changed_on TIMESTAMP NOT NULL DEFAULT NOW(), -- Timestamp of the change
+    changed_by VARCHAR(255) -- The user or process responsible for the change
 );
+
 
 
 audit_id
@@ -159,7 +160,7 @@ Create a trigger function on the view. The trigger function will detect changes 
 CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Unique transaction ID
+    transaction_id UUID := gen_random_uuid();
 BEGIN
     IF TG_OP = 'UPDATE' THEN
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
@@ -168,8 +169,8 @@ BEGIN
             TG_TABLE_NAME,
             row_to_json(OLD.*),
             column_name,
-            OLD.data->>column_name,
-            NEW.data->>column_name,
+            to_jsonb(OLD.data->>column_name), -- Convert old value to JSONB
+            to_jsonb(NEW.data->>column_name), -- Convert new value to JSONB
             NOW(),
             CURRENT_USER
         FROM jsonb_object_keys(OLD.data::jsonb) column_name
@@ -181,7 +182,7 @@ BEGIN
             TG_TABLE_NAME,
             row_to_json(OLD.*),
             NULL,
-            NULL,
+            row_to_json(OLD.*)::jsonb, -- Store entire old row as JSONB
             NULL,
             NOW(),
             CURRENT_USER
@@ -194,7 +195,7 @@ BEGIN
             row_to_json(NEW.*),
             NULL,
             NULL,
-            NULL,
+            row_to_json(NEW.*)::jsonb, -- Store entire new row as JSONB
             NOW(),
             CURRENT_USER
         );
@@ -203,6 +204,7 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 
