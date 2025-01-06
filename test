@@ -3,6 +3,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
     updated_columns TEXT[] := ARRAY[]::TEXT[]; -- Array to hold updated column names
+    col RECORD; -- Record variable to store column information
 BEGIN
     IF TG_OP = 'UPDATE' THEN
         -- Iterate over columns and find the ones that changed
