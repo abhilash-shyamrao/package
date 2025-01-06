@@ -2,32 +2,27 @@ CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
     transaction_id UUID := gen_random_uuid();  -- Generate a unique transaction ID
-    pk_column TEXT;  -- Variable to store the primary key column name
+    first_column TEXT;  -- Variable to store the name of the first column
     row_id TEXT;  -- Variable to store the row's unique identifier
 BEGIN
-    -- Retrieve the primary key column name dynamically from information_schema
-    SELECT c.column_name
-    INTO pk_column
-    FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu
-        ON tc.constraint_name = kcu.constraint_name
-    JOIN information_schema.columns c
-        ON c.table_name = kcu.table_name
-        AND c.column_name = kcu.column_name
-    WHERE tc.constraint_type = 'PRIMARY KEY'
-    AND tc.table_name = TG_TABLE_NAME
+    -- Retrieve the name of the first column (primary key or first column in the table)
+    SELECT column_name
+    INTO first_column
+    FROM information_schema.columns
+    WHERE table_name = TG_TABLE_NAME
+    ORDER BY ordinal_position
     LIMIT 1;
 
     -- For UPDATE or DELETE operations, use OLD for row_id
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        -- Access the primary key column directly using OLD
-        row_id := OLD.pk_column::TEXT;  -- Replace `pk_column` with the actual primary key column name
+        -- Dynamically access the first column from OLD record
+        row_id := (OLD).first_column::TEXT;  -- This directly accesses the first column
     END IF;
 
     -- For INSERT operation, use NEW for row_id
     IF TG_OP = 'INSERT' THEN
-        -- Access the primary key column directly using NEW
-        row_id := NEW.pk_column::TEXT;  -- Replace `pk_column` with the actual primary key column name
+        -- Dynamically access the first column from NEW record
+        row_id := (NEW).first_column::TEXT;  -- This directly accesses the first column
     END IF;
 
     IF TG_OP = 'UPDATE' THEN
@@ -36,7 +31,7 @@ BEGIN
         SELECT
             transaction_id,
             TG_TABLE_NAME,
-            row_id,  -- Use the unique row identifier
+            row_id,  -- Use the first column value as the unique row identifier
             col.column_name,  -- Column name that changed
             to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
             to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
@@ -54,7 +49,7 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_id,  -- Use the unique row identifier
+            row_id,  -- Use the first column value as the unique row identifier
             NULL,
             row_to_json(OLD)::jsonb, -- Store the entire deleted row
             NULL,
@@ -68,7 +63,7 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_id,  -- Use the unique row identifier
+            row_id,  -- Use the first column value as the unique row identifier
             NULL,
             NULL,
             row_to_json(NEW)::jsonb, -- Store the entire inserted row
