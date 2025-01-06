@@ -13,11 +13,19 @@ BEGIN
     WHERE i.indrelid = TG_RELID AND i.indisprimary;
 
     -- Extract the unique row identifier using the primary key column
-    EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING OLD;
+    -- For UPDATE or DELETE operations
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING OLD;
+    END IF;
+
+    -- For INSERT operation, use the NEW row
+    IF TG_OP = 'INSERT' THEN
+        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING NEW;
+    END IF;
 
     IF TG_OP = 'UPDATE' THEN
         -- Log each column where values changed
-        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         SELECT
             transaction_id,
             TG_TABLE_NAME,
@@ -35,7 +43,7 @@ BEGIN
 
     ELSIF TG_OP = 'DELETE' THEN
         -- Log the deleted row
-        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
@@ -48,11 +56,8 @@ BEGIN
         );
 
     ELSIF TG_OP = 'INSERT' THEN
-        -- Extract the unique row identifier for the inserted row
-        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING NEW;
-
         -- Log the inserted row
-        INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
+        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
