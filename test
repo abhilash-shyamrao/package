@@ -4,45 +4,43 @@ DECLARE
     transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        -- Log each column where values changed
+        -- Log the whole row where values changed (as old_value and new_value)
         INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        SELECT
+        VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            col.column_name,  -- Column name that changed
-            to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
-            to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
+            NULL,  -- No specific column for the whole row
+            row_to_json(OLD),  -- Entire old row as JSON
+            row_to_json(NEW),  -- Entire new row as JSON
             NOW(),
             CURRENT_USER
-        FROM (
-            SELECT unnest(array(SELECT column_name FROM information_schema.columns 
-                                WHERE table_name = TG_TABLE_NAME)) AS column_name
-        ) AS col
-        WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
+        );
 
     ELSIF TG_OP = 'DELETE' THEN
-        -- Log the deleted row
+        -- Log the deleted row (entire row as old_value)
         INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        SELECT 
+        VALUES (
             transaction_id,
             TG_TABLE_NAME,
             NULL,  -- No specific column for the deleted row
-            row_to_json(OLD)::jsonb, -- Entire deleted row as old value
+            row_to_json(OLD),  -- Entire old row as JSON (deleted row)
             NULL,  -- No new value for the deleted row
             NOW(),
-            CURRENT_USER;
+            CURRENT_USER
+        );
 
     ELSIF TG_OP = 'INSERT' THEN
-        -- Log the inserted row
+        -- Log the inserted row (entire row as new_value)
         INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        SELECT 
+        VALUES (
             transaction_id,
             TG_TABLE_NAME,
             NULL,  -- No specific column for the inserted row
             NULL,  -- No old value for the inserted row
-            row_to_json(NEW)::jsonb, -- Entire inserted row as new value
+            row_to_json(NEW),  -- Entire new row as JSON (inserted row)
             NOW(),
-            CURRENT_USER;
+            CURRENT_USER
+        );
     END IF;
 
     RETURN NULL;
