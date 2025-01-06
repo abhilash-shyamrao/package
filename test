@@ -1,25 +1,33 @@
 CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
+    transaction_id UUID := gen_random_uuid();  -- Generate a unique transaction ID
     pk_column TEXT;  -- Variable to store the primary key column name
     row_id TEXT;  -- Variable to store the row's unique identifier
 BEGIN
-    -- Retrieve the primary key column name dynamically
-    SELECT a.attname
+    -- Retrieve the primary key column name dynamically from information_schema
+    SELECT c.column_name
     INTO pk_column
-    FROM pg_index i
-    JOIN pg_attribute a ON a.attnum = ANY(i.indkey)
-    WHERE i.indrelid = TG_RELID AND i.indisprimary;
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+    JOIN information_schema.columns c
+        ON c.table_name = kcu.table_name
+        AND c.column_name = kcu.column_name
+    WHERE tc.constraint_type = 'PRIMARY KEY'
+    AND tc.table_name = TG_TABLE_NAME
+    LIMIT 1;
 
     -- For UPDATE or DELETE operations, use OLD for row_id
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        EXECUTE format('SELECT $1.%I', pk_column) INTO row_id USING OLD;
+        -- Access the primary key column directly using OLD
+        row_id := OLD.pk_column::TEXT;  -- Replace `pk_column` with the actual primary key column name
     END IF;
 
     -- For INSERT operation, use NEW for row_id
     IF TG_OP = 'INSERT' THEN
-        EXECUTE format('SELECT $1.%I', pk_column) INTO row_id USING NEW;
+        -- Access the primary key column directly using NEW
+        row_id := NEW.pk_column::TEXT;  -- Replace `pk_column` with the actual primary key column name
     END IF;
 
     IF TG_OP = 'UPDATE' THEN
