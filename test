@@ -1,9 +1,17 @@
 CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
-    updated_columns TEXT[] := '{}'; -- Array to store updated column names
+    transaction_id UUID := gen_random_uuid(); -- Unique transaction ID
+    pk_column TEXT; -- Primary key column
+    updated_columns TEXT[] := '{}'; -- Array of updated column names
 BEGIN
+    -- Get the primary key column for the table
+    SELECT a.attname
+    INTO pk_column
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = TG_RELID AND i.indisprimary;
+
     IF TG_OP = 'UPDATE' THEN
         -- Collect all changed column names
         updated_columns := array(
@@ -16,13 +24,13 @@ BEGIN
             WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name
         );
 
-        -- Insert a single record with all updated column names
+        -- Insert a single record for the update
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(OLD), -- Entire old row
-            array_to_string(updated_columns, ', '), -- List of updated columns as a comma-separated string
+            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Extract the primary key value
+            array_to_string(updated_columns, ', '), -- List of updated columns
             NULL,
             NULL,
             NOW(),
@@ -35,9 +43,9 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(OLD),
+            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Extract the primary key value
             NULL,
-            row_to_json(OLD)::jsonb, -- Store the entire deleted row
+            row_to_json(OLD)::jsonb, -- Store entire old row as old_value
             NULL,
             NOW(),
             CURRENT_USER
@@ -49,10 +57,10 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(NEW),
+            jsonb_build_object(pk_column, NEW.*::jsonb ->> pk_column), -- Extract the primary key value
             NULL,
             NULL,
-            row_to_json(NEW)::jsonb, -- Store the entire inserted row
+            row_to_json(NEW)::jsonb, -- Store entire new row as new_value
             NOW(),
             CURRENT_USER
         );
