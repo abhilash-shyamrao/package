@@ -1,77 +1,10 @@
-CREATE OR REPLACE FUNCTION log_unified_view_changes()
-RETURNS TRIGGER AS $$
-DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
-    row_id TEXT;  -- Variable to store the row's unique identifier
-    pk_column TEXT;  -- Variable to store the primary key column
-BEGIN
-    -- Get the primary key column for the table
-    SELECT column_name INTO pk_column
-    FROM information_schema.key_column_usage
-    WHERE table_name = TG_TABLE_NAME
-    AND constraint_name = (
-        SELECT constraint_name
-        FROM information_schema.table_constraints
-        WHERE table_name = TG_TABLE_NAME
-        AND constraint_type = 'PRIMARY KEY'
-    )
-    LIMIT 1;  -- Assuming one primary key column
-
-    -- Use the value of the primary key column as the row identifier
-    IF pk_column IS NOT NULL THEN
-        row_id := TG_TABLE_NAME || '.' || pk_column;  -- Form row identifier as table_name.column_name
-    ELSE
-        -- If no primary key column is found, use the whole row as identifier
-        row_id := row_to_json(OLD)::TEXT;
-    END IF;
-
-    IF TG_OP = 'UPDATE' THEN
-        -- Log each column where values changed
-        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
-        SELECT
-            transaction_id,
-            TG_TABLE_NAME,
-            row_id,  -- Use table_name.column_name as row identifier
-            col.column_name,  -- Column name that changed
-            to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
-            to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
-            NOW(),
-            CURRENT_USER
-        FROM (
-            SELECT unnest(array(SELECT column_name FROM information_schema.columns 
-                                WHERE table_name = TG_TABLE_NAME)) AS column_name
-        ) AS col
-        WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
-
-    ELSIF TG_OP = 'DELETE' THEN
-        -- Log the deleted row
-        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
-        VALUES (
-            transaction_id,
-            TG_TABLE_NAME,
-            row_id,  -- Use table_name.column_name as row identifier
-            NULL,
-            row_to_json(OLD)::jsonb, -- Store the entire deleted row
-            NULL,
-            NOW(),
-            CURRENT_USER
-        );
-
-    ELSIF TG_OP = 'INSERT' THEN
-        -- Log the inserted row
-        INSERT INTO dqc_schema.audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
-        VALUES (
-            transaction_id,
-            TG_TABLE_NAME,
-            row_id,  -- Use table_name.column_name as row identifier
-            NULL,
-            NULL,
-            row_to_json(NEW)::jsonb, -- Store the entire inserted row
-            NOW(),
-            CURRENT_USER
-        );
-    END IF;
-
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE audit_log (
+    audit_id SERIAL PRIMARY KEY, -- Unique identifier for each log entry
+    transaction_id UUID NOT NULL, -- Unique identifier for a transaction
+    table_name VARCHAR(255) NOT NULL, -- Name of the table where change occurred
+    column_name VARCHAR(255) NOT NULL, -- Name of the column that changed
+    old_value TEXT, -- Old value of the column
+    new_value TEXT, -- New value of the column
+    changed_on TIMESTAMP NOT NULL DEFAULT NOW(), -- Timestamp of the change
+    changed_by VARCHAR(255) -- User or process that made the change
+);
