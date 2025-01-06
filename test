@@ -2,30 +2,21 @@ CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
     transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
-    pk_column TEXT; -- Primary key column
 BEGIN
-    -- Determine the primary key column for the table
-    SELECT a.attname
-    INTO pk_column
-    FROM pg_index i
-    JOIN pg_attribute a ON a.attnum = ANY(i.indkey)
-    WHERE i.indrelid = TG_RELID AND i.indisprimary;
-
     IF TG_OP = 'UPDATE' THEN
         -- Log each column where values changed
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         SELECT
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Unique identifier of the row
+            row_to_json(OLD), -- Entire old row
             col.column_name,  -- Column name that changed
             to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
             to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
             NOW(),
             CURRENT_USER
         FROM (
-            SELECT unnest(array(SELECT column_name 
-                                FROM information_schema.columns 
+            SELECT unnest(array(SELECT column_name FROM information_schema.columns 
                                 WHERE table_name = TG_TABLE_NAME)) AS column_name
         ) AS col
         WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
@@ -36,9 +27,9 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Unique identifier of the row
+            row_to_json(OLD),
             NULL,
-            row_to_json(OLD)::jsonb, -- Store the entire deleted row as old_value
+            row_to_json(OLD)::jsonb, -- Store the entire deleted row
             NULL,
             NOW(),
             CURRENT_USER
@@ -50,10 +41,10 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, NEW.*::jsonb ->> pk_column), -- Unique identifier of the row
+            row_to_json(NEW),
             NULL,
             NULL,
-            row_to_json(NEW)::jsonb, -- Store the entire inserted row as new_value
+            row_to_json(NEW)::jsonb, -- Store the entire inserted row
             NOW(),
             CURRENT_USER
         );
