@@ -1,11 +1,10 @@
 CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Unique transaction ID
+    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
     pk_column TEXT; -- Primary key column
-    updated_columns TEXT[] := '{}'; -- Array of updated column names
 BEGIN
-    -- Get the primary key column for the table
+    -- Determine the primary key column for the table
     SELECT a.attname
     INTO pk_column
     FROM pg_index i
@@ -13,29 +12,23 @@ BEGIN
     WHERE i.indrelid = TG_RELID AND i.indisprimary;
 
     IF TG_OP = 'UPDATE' THEN
-        -- Collect all changed column names
-        updated_columns := array(
-            SELECT col.column_name
-            FROM (
-                SELECT unnest(array(SELECT column_name 
-                                    FROM information_schema.columns 
-                                    WHERE table_name = TG_TABLE_NAME)) AS column_name
-            ) AS col
-            WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name
-        );
-
-        -- Insert a single record for the update
+        -- Log each column where values changed
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
-        VALUES (
+        SELECT
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Extract the primary key value
-            array_to_string(updated_columns, ', '), -- List of updated columns
-            NULL,
-            NULL,
+            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Unique identifier of the row
+            col.column_name,  -- Column name that changed
+            to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
+            to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
             NOW(),
             CURRENT_USER
-        );
+        FROM (
+            SELECT unnest(array(SELECT column_name 
+                                FROM information_schema.columns 
+                                WHERE table_name = TG_TABLE_NAME)) AS column_name
+        ) AS col
+        WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
 
     ELSIF TG_OP = 'DELETE' THEN
         -- Log the deleted row
@@ -43,9 +36,9 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Extract the primary key value
+            jsonb_build_object(pk_column, OLD.*::jsonb ->> pk_column), -- Unique identifier of the row
             NULL,
-            row_to_json(OLD)::jsonb, -- Store entire old row as old_value
+            row_to_json(OLD)::jsonb, -- Store the entire deleted row as old_value
             NULL,
             NOW(),
             CURRENT_USER
@@ -57,10 +50,10 @@ BEGIN
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            jsonb_build_object(pk_column, NEW.*::jsonb ->> pk_column), -- Extract the primary key value
+            jsonb_build_object(pk_column, NEW.*::jsonb ->> pk_column), -- Unique identifier of the row
             NULL,
             NULL,
-            row_to_json(NEW)::jsonb, -- Store entire new row as new_value
+            row_to_json(NEW)::jsonb, -- Store the entire inserted row as new_value
             NOW(),
             CURRENT_USER
         );
