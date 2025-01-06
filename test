@@ -12,15 +12,14 @@ BEGIN
     JOIN pg_attribute a ON a.attnum = ANY(i.indkey)
     WHERE i.indrelid = TG_RELID AND i.indisprimary;
 
-    -- Extract the unique row identifier using the primary key column
-    -- For UPDATE or DELETE operations
+    -- For UPDATE or DELETE operations, use OLD for row_id
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING OLD;
+        EXECUTE format('SELECT $1.%I', pk_column) INTO row_id USING OLD;
     END IF;
 
-    -- For INSERT operation, use the NEW row
+    -- For INSERT operation, use NEW for row_id
     IF TG_OP = 'INSERT' THEN
-        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING NEW;
+        EXECUTE format('SELECT $1.%I', pk_column) INTO row_id USING NEW;
     END IF;
 
     IF TG_OP = 'UPDATE' THEN
