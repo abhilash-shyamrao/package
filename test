@@ -2,10 +2,18 @@ CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
     transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
+    pk_column TEXT;  -- Variable to store the primary key column name
     row_id TEXT;  -- Variable to store the row's unique identifier
 BEGIN
-    -- Extract the unique row identifier based on the primary key column (replace 'id' with your actual column name)
-    row_id := OLD.id::TEXT;  -- Assuming 'id' is the primary key; modify as necessary.
+    -- Retrieve the primary key column name dynamically
+    SELECT a.attname
+    INTO pk_column
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = TG_RELID AND i.indisprimary;
+
+    -- Extract the unique row identifier using the primary key column
+    EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING OLD;
 
     IF TG_OP = 'UPDATE' THEN
         -- Log each column where values changed
@@ -40,6 +48,9 @@ BEGIN
         );
 
     ELSIF TG_OP = 'INSERT' THEN
+        -- Extract the unique row identifier for the inserted row
+        EXECUTE format('SELECT ($1).%I', pk_column) INTO row_id USING NEW;
+
         -- Log the inserted row
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
