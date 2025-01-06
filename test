@@ -2,24 +2,35 @@ CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
     transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
+    updated_columns TEXT[] := ARRAY[]::TEXT[]; -- Array to hold updated column names
 BEGIN
     IF TG_OP = 'UPDATE' THEN
-        -- Log each column where values changed
-        INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        SELECT
-            transaction_id,
-            TG_TABLE_NAME,
-            
-            col.column_name,  -- Column name that changed
-            row_to_json(OLD), -- Entire old row
-            row_to_json(NEW), -- Entire old row
-            NOW(),
-            CURRENT_USER
-        FROM (
-            SELECT unnest(array(SELECT column_name FROM information_schema.columns 
-                                WHERE table_name = TG_TABLE_NAME)) AS column_name
-        ) AS col
-        WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
+        -- Iterate over columns and find the ones that changed
+        FOR col IN
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = TG_TABLE_NAME
+        LOOP
+            -- Check if the column value has changed
+            IF to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name THEN
+                -- Add the column name to the updated_columns array
+                updated_columns := array_append(updated_columns, col.column_name);
+            END IF;
+        END LOOP;
+
+        -- If there are any updated columns, log the changes
+        IF array_length(updated_columns, 1) > 0 THEN
+            INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
+            VALUES (
+                transaction_id,
+                TG_TABLE_NAME,
+                array_to_string(updated_columns, ', '), -- List of updated columns
+                row_to_json(OLD), -- Entire old row
+                row_to_json(NEW), -- Entire new row
+                NOW(),
+                CURRENT_USER
+            );
+        END IF;
 
     ELSIF TG_OP = 'DELETE' THEN
         -- Log the deleted row
