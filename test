@@ -1,201 +1,50 @@
-
-
-Create an audit log table that tracks changes to all unique configuration columns in the tables
-
-CREATE TABLE audit_log (
-    audit_id SERIAL PRIMARY KEY,
-    transaction_id UUID NOT NULL,
-    table_name VARCHAR(255) NOT NULL,
-    row_identifier JSONB NOT NULL, -- Identifier of the affected row (e.g., primary key)
-    column_name VARCHAR(255), -- The specific column that changed
-    old_value JSONB, -- Old value in JSONB format
-    new_value JSONB, -- New value in JSONB format
-    changed_on TIMESTAMP NOT NULL DEFAULT NOW(), -- Timestamp of the change
-    changed_by VARCHAR(255) -- The user or process responsible for the change
-);
-
-
-
-audit_id
-A unique identifier for each entry in the log, allowing for easy reference and querying of specific changes.
-transaction_id
-Groups related changes that occurred within the same transaction, enabling comprehensive tracking of multi-step operations.
-table_name
-Identifies the table in the database where the change occurred, helping to locate the source of the modification.
-row_identifier
-Stores the unique identifier of the affected row (e.g., primary key), ensuring precise identification of the data that was changed.
-column_name
-Specifies the exact column that was modified, or is left blank for operations like row-level INSERT or DELETE.
-old_value
-Captures the value of the column before the change, aiding in understanding what was modified or for potential data recovery.
-new_value
-Captures the value of the column after the change, providing a clear view of the result of the modification.
-changed_on
-Records the timestamp of when the change occurred, enabling chronological tracking of modifications.
-changed_by
-Logs the user or process responsible for the change, offering accountability and auditability.
-
-
-Create a view that combines all the tables using a UNION ALL. This view will have columns common across the tables to identify the source table.
-
-CREATE VIEW unified_view AS
-SELECT
-    'dq_access_group' AS source_table,
-    access_id AS primary_key,
-    row_to_json(dq_access_group.*) AS data
-FROM dq_access_group
-UNION ALL
-SELECT
-    'dq_accounts' AS source_table,
-    account_id AS primary_key,
-    row_to_json(dq_accounts.*) AS data
-FROM dq_accounts
-UNION ALL
-SELECT
-    'dq_analyzers' AS source_table,
-    dq_analyzer_id AS primary_key,
-    row_to_json(dq_analyzers.*) AS data
-FROM dq_analyzers
-UNION ALL
-SELECT
-    'dq_analyzers_library' AS source_table,
-    analyzer_id AS primary_key,
-    row_to_json(dq_analyzers_library.*) AS data
-FROM dq_analyzers_library
-UNION ALL
-SELECT
-    'dq_config' AS source_table,
-    dq_config_id AS primary_key,
-    row_to_json(dq_config.*) AS data
-FROM dq_config
-UNION ALL
-SELECT
-    'dq_config_access_relation' AS source_table,
-    dq_config_id AS primary_key,
-    row_to_json(dq_config_access_relation.*) AS data
-FROM dq_config_access_relation
-UNION ALL
-SELECT
-    'dq_config_dataset_filter' AS source_table,
-    dq_config_id AS primary_key,
-    row_to_json(dq_config_dataset_filter.*) AS data
-FROM dq_config_dataset_filter
-UNION ALL
-SELECT
-    'dq_config_integration' AS source_table,
-    dq_integration_id AS primary_key,
-    row_to_json(dq_config_integration.*) AS data
-FROM dq_config_integration
-UNION ALL
-SELECT
-    'dq_config_target_relation' AS source_table,
-    dq_config_id AS primary_key,
-    row_to_json(dq_config_target_relation.*) AS data
-FROM dq_config_target_relation
-UNION ALL
-SELECT
-    'dq_dataset' AS source_table,
-    dataset_id AS primary_key,
-    row_to_json(dq_dataset.*) AS data
-FROM dq_dataset
-UNION ALL
-SELECT
-    'dq_reporting_group' AS source_table,
-    reporting_group_id AS primary_key,
-    row_to_json(dq_reporting_group.*) AS data
-FROM dq_reporting_group
-UNION ALL
-SELECT
-    'dq_reporting_group_access_relation' AS source_table,
-    reporting_group_id AS primary_key,
-    row_to_json(dq_reporting_group_access_relation.*) AS data
-FROM dq_reporting_group_access_relation
-UNION ALL
-SELECT
-    'dq_reporting_group_config_relation' AS source_table,
-    reporting_group_id AS primary_key,
-    row_to_json(dq_reporting_group_config_relation.*) AS data
-FROM dq_reporting_group_config_relation
-UNION ALL
-SELECT
-    'dq_results_analyzer_details' AS source_table,
-    job_run_id AS primary_key,
-    row_to_json(dq_results_analyzer_details.*) AS data
-FROM dq_results_analyzer_details
-UNION ALL
-SELECT
-    'dq_results_master' AS source_table,
-    job_run_id AS primary_key,
-    row_to_json(dq_results_master.*) AS data
-FROM dq_results_master
-UNION ALL
-SELECT
-    'dq_results_observation_details' AS source_table,
-    job_run_id AS primary_key,
-    row_to_json(dq_results_observation_details.*) AS data
-FROM dq_results_observation_details
-UNION ALL
-SELECT
-    'dq_results_rule_details' AS source_table,
-    job_run_id AS primary_key,
-    row_to_json(dq_results_rule_details.*) AS data
-FROM dq_results_rule_details
-UNION ALL
-SELECT
-    'dq_rule_library' AS source_table,
-    rule_id AS primary_key,
-    row_to_json(dq_rule_library.*) AS data
-FROM dq_rule_library
-UNION ALL
-SELECT
-    'dq_ruleset' AS source_table,
-    dq_rule_id AS primary_key,
-    row_to_json(dq_ruleset.*) AS data
-FROM dq_ruleset;
-
-
-
-Create a trigger function on the view. The trigger function will detect changes (inserts, updates, deletes) to the unified_view and insert a record into the audit_log table.
-
 CREATE OR REPLACE FUNCTION log_unified_view_changes()
 RETURNS TRIGGER AS $$
 DECLARE
-    transaction_id UUID := gen_random_uuid();
+    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
 BEGIN
     IF TG_OP = 'UPDATE' THEN
+        -- Log each column where values changed
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         SELECT
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(OLD.*),
-            column_name,
-            to_jsonb(OLD.data->>column_name), -- Convert old value to JSONB
-            to_jsonb(NEW.data->>column_name), -- Convert new value to JSONB
+            row_to_json(OLD), -- Entire old row
+            col.column_name,  -- Column name that changed
+            to_jsonb(OLD.*)::jsonb -> col.column_name, -- Old value
+            to_jsonb(NEW.*)::jsonb -> col.column_name, -- New value
             NOW(),
             CURRENT_USER
-        FROM jsonb_object_keys(OLD.data::jsonb) column_name
-        WHERE OLD.data->>column_name IS DISTINCT FROM NEW.data->>column_name;
+        FROM (
+            SELECT unnest(array(SELECT column_name FROM information_schema.columns 
+                                WHERE table_name = TG_TABLE_NAME)) AS column_name
+        ) AS col
+        WHERE to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name;
+
     ELSIF TG_OP = 'DELETE' THEN
+        -- Log the deleted row
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(OLD.*),
+            row_to_json(OLD),
             NULL,
-            row_to_json(OLD.*)::jsonb, -- Store entire old row as JSONB
+            row_to_json(OLD)::jsonb, -- Store the entire deleted row
             NULL,
             NOW(),
             CURRENT_USER
         );
+
     ELSIF TG_OP = 'INSERT' THEN
+        -- Log the inserted row
         INSERT INTO audit_log (transaction_id, table_name, row_identifier, column_name, old_value, new_value, changed_on, changed_by)
         VALUES (
             transaction_id,
             TG_TABLE_NAME,
-            row_to_json(NEW.*),
+            row_to_json(NEW),
             NULL,
             NULL,
-            row_to_json(NEW.*)::jsonb, -- Store entire new row as JSONB
+            row_to_json(NEW)::jsonb, -- Store the entire inserted row
             NOW(),
             CURRENT_USER
         );
@@ -204,129 +53,3 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
-
-
-
-
-
-create triggers for all the tables, attaching them to the log_unified_view_changes function.
-Each trigger is attached to a specific table (AFTER INSERT OR UPDATE OR DELETE) to capture any data changes.
-The log_unified_view_changes() function is called for every row affected, logging changes into the audit_log table.
-This script ensures all tables are monitored for data modifications.
-
--- dq_access_group
-CREATE TRIGGER trigger_dq_access_group
-AFTER INSERT OR UPDATE OR DELETE ON dq_access_group
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_accounts
-CREATE TRIGGER trigger_dq_accounts
-AFTER INSERT OR UPDATE OR DELETE ON dq_accounts
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_analyzers
-CREATE TRIGGER trigger_dq_analyzers
-AFTER INSERT OR UPDATE OR DELETE ON dq_analyzers
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_analyzers_library
-CREATE TRIGGER trigger_dq_analyzers_library
-AFTER INSERT OR UPDATE OR DELETE ON dq_analyzers_library
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_config
-CREATE TRIGGER trigger_dq_config
-AFTER INSERT OR UPDATE OR DELETE ON dq_config
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_config_access_relation
-CREATE TRIGGER trigger_dq_config_access_relation
-AFTER INSERT OR UPDATE OR DELETE ON dq_config_access_relation
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_config_dataset_filter
-CREATE TRIGGER trigger_dq_config_dataset_filter
-AFTER INSERT OR UPDATE OR DELETE ON dq_config_dataset_filter
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_config_integration
-CREATE TRIGGER trigger_dq_config_integration
-AFTER INSERT OR UPDATE OR DELETE ON dq_config_integration
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_config_target_relation
-CREATE TRIGGER trigger_dq_config_target_relation
-AFTER INSERT OR UPDATE OR DELETE ON dq_config_target_relation
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_dataset
-CREATE TRIGGER trigger_dq_dataset
-AFTER INSERT OR UPDATE OR DELETE ON dq_dataset
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_reporting_group
-CREATE TRIGGER trigger_dq_reporting_group
-AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_reporting_group_access_relation
-CREATE TRIGGER trigger_dq_reporting_group_access_relation
-AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group_access_relation
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_reporting_group_config_relation
-CREATE TRIGGER trigger_dq_reporting_group_config_relation
-AFTER INSERT OR UPDATE OR DELETE ON dq_reporting_group_config_relation
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_results_analyzer_details
-CREATE TRIGGER trigger_dq_results_analyzer_details
-AFTER INSERT OR UPDATE OR DELETE ON dq_results_analyzer_details
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_results_master
-CREATE TRIGGER trigger_dq_results_master
-AFTER INSERT OR UPDATE OR DELETE ON dq_results_master
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_results_observation_details
-CREATE TRIGGER trigger_dq_results_observation_details
-AFTER INSERT OR UPDATE OR DELETE ON dq_results_observation_details
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_results_rule_details
-CREATE TRIGGER trigger_dq_results_rule_details
-AFTER INSERT OR UPDATE OR DELETE ON dq_results_rule_details
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_rule_library
-CREATE TRIGGER trigger_dq_rule_library
-AFTER INSERT OR UPDATE OR DELETE ON dq_rule_library
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
--- dq_ruleset
-CREATE TRIGGER trigger_dq_ruleset
-AFTER INSERT OR UPDATE OR DELETE ON dq_ruleset
-FOR EACH ROW
-EXECUTE FUNCTION log_unified_view_changes();
-
-
-
