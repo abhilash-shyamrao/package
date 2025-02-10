@@ -1,65 +1,36 @@
-CREATE OR REPLACE FUNCTION log_unified_view_changes()
-RETURNS TRIGGER AS $$
-DECLARE
-    transaction_id UUID := gen_random_uuid(); -- Generate a unique transaction ID
-    updated_columns TEXT[] := ARRAY[]::TEXT[]; -- Array to hold updated column names
-    col RECORD; -- Record variable to store column information
-BEGIN
-    IF TG_OP = 'UPDATE' THEN
-        -- Iterate over columns and find the ones that changed
-        FOR col IN
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = TG_TABLE_NAME
-        LOOP
-            -- Check if the column value has changed
-            IF to_jsonb(OLD.*)::jsonb -> col.column_name IS DISTINCT FROM to_jsonb(NEW.*)::jsonb -> col.column_name THEN
-                -- Add the column name to the updated_columns array
-                updated_columns := array_append(updated_columns, col.column_name);
-            END IF;
-        END LOOP;
+import sys
+import boto3
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+from awsglue.utils import getResolvedOptions
 
-        -- If there are any updated columns, log the changes
-        IF array_length(updated_columns, 1) > 0 THEN
-            INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-            VALUES (
-                transaction_id,
-                TG_TABLE_NAME,
-                array_to_string(updated_columns, ', '), -- List of updated columns
-                row_to_json(OLD), -- Entire old row
-                row_to_json(NEW), -- Entire new row
-                NOW(),
-                CURRENT_USER
-            );
-        END IF;
+# Retrieve arguments (S3 bucket name)
+args = getResolvedOptions(sys.argv, ['S3_BUCKET_NAME', 'S3_OUTPUT_PATH'])
 
-    ELSIF TG_OP = 'DELETE' THEN
-        -- Log the deleted row
-        INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        VALUES (
-            transaction_id,
-            TG_TABLE_NAME,
-            NULL,
-            row_to_json(OLD)::jsonb, -- Store the entire deleted row
-            NULL,
-            NOW(),
-            CURRENT_USER
-        );
+s3_bucket_name = args['S3_BUCKET_NAME']
+s3_output_path = args['S3_OUTPUT_PATH']
 
-    ELSIF TG_OP = 'INSERT' THEN
-        -- Log the inserted row
-        INSERT INTO audit_log (transaction_id, table_name, column_name, old_value, new_value, changed_on, changed_by)
-        VALUES (
-            transaction_id,
-            TG_TABLE_NAME,
-            NULL,
-            NULL,
-            row_to_json(NEW)::jsonb, -- Store the entire inserted row
-            NOW(),
-            CURRENT_USER
-        );
-    END IF;
+# Generate 40 unique column names
+columns = [f'col_{i}' for i in range(1, 41)]
 
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+# Generate 10 rows of dummy data
+data = {col: [f'data_{i}_{col}' for i in range(10)] for col in columns}
+
+# Create a Pandas DataFrame
+df = pd.DataFrame(data)
+
+# Convert to Arrow Table
+table = pa.Table.from_pandas(df)
+
+# Define Parquet file path
+parquet_file = "/tmp/dummy_data.parquet"
+
+# Write DataFrame to Parquet file
+pq.write_table(table, parquet_file)
+
+# Upload to S3
+s3_client = boto3.client('s3')
+s3_client.upload_file(parquet_file, s3_bucket_name, f"{s3_output_path}/dummy_data.parquet")
+
+print(f"Parquet file uploaded to s3://{s3_bucket_name}/{s3_output_path}/dummy_data.parquet")
